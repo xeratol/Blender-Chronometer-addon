@@ -75,11 +75,11 @@ def bridge_upper_lower_teeth(numVerts, startIdxUpper, startIdxLower):
 
 def bridge_loops(numVerts, startIdxUpper, startIdxLower):
     faces = []
-    for i in range(numVerts - 1):
+    for i in range(1, numVerts):
         face = (i + startIdxUpper + 1, i + startIdxUpper, i + startIdxLower, i + startIdxLower + 1)
         faces.append(face)
-    face = (startIdxUpper, startIdxUpper + numVerts - 1, startIdxLower + numVerts - 1, startIdxLower)
-    faces.append(face)
+    # face = (startIdxUpper, startIdxUpper + numVerts - 1, startIdxLower + numVerts - 1, startIdxLower)
+    # faces.append(face)
     return faces
 
 def bridge_teeth_base(vertPerTooth, baseStartIdx, baseEndIdx, teethStartIdx, teethEndIdx):
@@ -144,6 +144,12 @@ def create_base(radius, numSegments, z):
     verts = [polar_coords(radius, angleRad * i, z) for i in reversed(range(numSegments)) ]
     return verts
 
+def create_arc(radius, numSegments, z, arc):
+    angleRad = arc / numSegments
+    verts = [ polar_coords(radius, math.radians(arc), z) ]
+    verts.extend([polar_coords(radius, angleRad * i, z) for i in reversed(range(numSegments)) ])
+    return verts
+
 def add_escape_wheel(self, context):
     numSegments = (self.vertPerTooth - 1) * self.numTeeth
     
@@ -199,24 +205,26 @@ def add_impulse_roller(self, context):
     if (center[0] <= impulseRollerRadius or center[1] <= impulseRollerRadius):
         self.report({'WARNING'}, 'Not enough space between Locking Pallet and Impulse Roller.')
 
+    biggerArc = 2 * math.pi - impulseRollerTheta
+
     verts = []
     startIdxUpperOuter = len(verts)
-    verts.extend( create_base(impulseRollerRadius, self.impRollerVert, 0) )
+    verts.extend( create_arc(impulseRollerRadius, self.impRollerVert, 0, biggerArc) )
     startIdxLowerOuter = len(verts)
-    verts.extend( create_base(impulseRollerRadius, self.impRollerVert, -self.width / 2.0) )
+    verts.extend( create_arc(impulseRollerRadius, self.impRollerVert, -self.width / 2.0, biggerArc) )
 
     base = max(0, impulseRollerRadius - self.impRollerBase)
     startIdxUpperInner = len(verts)
-    verts.extend( create_base(base, self.impRollerVert, 0) )
+    verts.extend( create_arc(base, self.impRollerVert, 0, biggerArc) )
     startIdxLowerInner = len(verts)
-    verts.extend( create_base(base, self.impRollerVert, -self.width / 2.0) )
+    verts.extend( create_arc(base, self.impRollerVert, -self.width / 2.0, biggerArc) )
     move_verts(verts, center)
 
     faces = []
-    faces.extend( bridge_loops(self.impRollerVert, startIdxUpperOuter, startIdxLowerOuter) )
+    faces.extend( bridge_loops(self.impRollerVert, startIdxLowerOuter, startIdxUpperOuter) )
     # faces.extend( bridge_loops(self.impRollerVert, startIdxLowerInner, startIdxUpperInner) )
-    faces.extend( bridge_loops(self.impRollerVert, startIdxUpperInner, startIdxUpperOuter) )
-    faces.extend( bridge_loops(self.impRollerVert, startIdxLowerOuter, startIdxLowerInner) )
+    faces.extend( bridge_loops(self.impRollerVert, startIdxUpperOuter, startIdxUpperInner) )
+    faces.extend( bridge_loops(self.impRollerVert, startIdxLowerInner, startIdxLowerOuter) )
 
     mesh = bpy.data.meshes.new(name="Impulse Roller")
     mesh.from_pydata(verts, [], faces)
