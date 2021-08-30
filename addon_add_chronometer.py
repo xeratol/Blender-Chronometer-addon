@@ -218,6 +218,8 @@ def add_impulse_roller(self, context):
     verts.extend( create_arc(base, self.impRollerVert, 0, biggerArc) )
     startIdxLowerInner = len(verts)
     verts.extend( create_arc(base, self.impRollerVert, -self.width / 2.0, biggerArc) )
+
+    rot_verts(verts, math.pi + math.atan( center[1] / center[0] ) + impulseRollerTheta / 2)
     move_verts(verts, center)
 
     faces = []
