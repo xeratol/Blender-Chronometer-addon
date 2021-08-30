@@ -204,7 +204,7 @@ def add_object_button(self, context):
     self.layout.operator(
         AddChronometer.bl_idname,
         text="Chronometer Escapement",
-        icon='PLUGIN')
+        icon='PIVOT_INDIVIDUAL')
 
 
 def register():
