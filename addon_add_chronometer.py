@@ -224,7 +224,8 @@ def add_impulse_roller(self, context):
     # faces.extend( bridge_loops(self.impRollerVert, startIdxLowerInner, startIdxUpperInner) )
     faces.extend( bridge_loops(self.impRollerVert, startIdxUpperOuter, startIdxUpperInner) )
     faces.extend( bridge_loops(self.impRollerVert, startIdxLowerInner, startIdxLowerOuter) )
-    # faces.append( [startIdxLowerOuter, startIdxUpperOuter, startIdxUpperInner, startIdxLowerOuter] )
+    faces.append( [startIdxUpperOuter, startIdxLowerOuter, startIdxLowerInner, startIdxUpperInner] )
+    faces.append( [startIdxLowerInner - 1, len(verts) - 1, startIdxUpperInner - 1, startIdxLowerOuter - 1] )
 
     mesh = bpy.data.meshes.new(name="Impulse Roller")
     mesh.from_pydata(verts, [], faces)
