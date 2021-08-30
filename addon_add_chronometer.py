@@ -76,7 +76,7 @@ def bridge_upper_lower_teeth(numVerts, startIdxUpper, startIdxLower):
 def bridge_loops(numVerts, startIdxUpper, startIdxLower):
     faces = []
     for i in range(numVerts - 1):
-        face = (i + startIdxUpper + 1, i + startIdxUpper, i + startIdxLower, i + startIdxLower + 1)
+        face = (i + startIdxUpper, i + startIdxUpper + 1, i + startIdxLower + 1, i + startIdxLower)
         faces.append(face)
     return faces
 
@@ -84,7 +84,7 @@ def bridge_teeth_base(vertPerTooth, baseStartIdx, baseEndIdx, teethStartIdx, tee
     faces = []
     j = teethStartIdx
     for i in range(baseStartIdx, baseEndIdx):
-        if (j % vertPerTooth ==  vertPerTooth - 2):
+        if (j % vertPerTooth == 0):
             face = (i + 1, i, j, j + 1, j + 2)
             j += 1
         else:
@@ -102,49 +102,49 @@ def add_faces(numVertsTeeth, vertPerTooth,
         startIdxLowerBase, endIdxLowerBase):
     faces = []
 
-    faces.extend( flip_faces(
+    faces.extend(
         bridge_upper_lower_teeth( numVertsTeeth,
             startIdxUpperTeeth, startIdxLowerTeeth
         )
-    ))
+    )
 
-    faces.extend( flip_faces(
+    faces.extend(
         bridge_teeth_base( vertPerTooth,
             startIdxUpperBase, endIdxUpperBase,
             startIdxUpperTeeth, endIdxUpperTeeth
         )
-    ))
+    )
 
-    faces.extend(
+    faces.extend( flip_faces(
         bridge_teeth_base( vertPerTooth,
             startIdxLowerBase, endIdxLowerBase,
             startIdxLowerTeeth, endIdxLowerTeeth
         )
-    )
+    ))
 
     return faces
 
 def create_teeth(vertPerTooth, numSegments, radius, dedendum, z):
     verts = []
-    for i in reversed(range(numSegments)):
+    for i in range(numSegments):
         angleRad = math.radians(i * 360.0 / numSegments)
-        radiusAdd = ( ( ( i % vertPerTooth ) / vertPerTooth ) ** 4 ) * dedendum
-        vert = polar_coords(radius + radiusAdd, angleRad, z)
-        verts.append(vert)
         if (i % vertPerTooth == 0):
-            radiusAdd = dedendum
+            radiusAdd = 0 #dedendum
             vert = polar_coords(radius + radiusAdd, angleRad, z)
             verts.append(vert)
+        radiusAdd = ( ( 1.0 - ( i % vertPerTooth ) / vertPerTooth ) ** 4 ) * dedendum
+        vert = polar_coords(radius + radiusAdd, angleRad, z)
+        verts.append(vert)
     return verts
 
 def create_base(radius, numSegments, z):
     angleRad = math.radians( 360.0 / numSegments)
-    verts = [polar_coords(radius, angleRad * i, z) for i in reversed(range(numSegments)) ]
+    verts = [polar_coords(radius, angleRad * i, z) for i in range(numSegments) ]
     return verts
 
 def create_arc(radius, numSegments, z, arc):
     angleRad = arc / (numSegments - 1)
-    verts = [polar_coords(radius, angleRad * i, z) for i in reversed(range(numSegments)) ]
+    verts = [polar_coords(radius, angleRad * i, z) for i in range(numSegments) ]
     return verts
 
 def add_escape_wheel(self, context):
@@ -224,8 +224,8 @@ def add_impulse_roller(self, context):
     # faces.extend( bridge_loops(self.impRollerVert, startIdxLowerInner, startIdxUpperInner) )
     faces.extend( bridge_loops(self.impRollerVert, startIdxUpperOuter, startIdxUpperInner) )
     faces.extend( bridge_loops(self.impRollerVert, startIdxLowerInner, startIdxLowerOuter) )
-    faces.append( [startIdxUpperOuter, startIdxLowerOuter, startIdxLowerInner, startIdxUpperInner] )
-    faces.append( [startIdxLowerInner - 1, len(verts) - 1, startIdxUpperInner - 1, startIdxLowerOuter - 1] )
+    faces.append( [startIdxLowerOuter, startIdxUpperOuter, startIdxUpperInner, startIdxLowerInner] )
+    faces.append( [len(verts) - 1, startIdxLowerInner - 1, startIdxLowerOuter - 1, startIdxUpperInner - 1] )
 
     mesh = bpy.data.meshes.new(name="Impulse Roller")
     mesh.from_pydata(verts, [], faces)
