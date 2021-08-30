@@ -79,7 +79,12 @@ def create_teeth(vertPerTooth, numSegments, radius, addendum, z):
         verts.append(vert)
     return verts
 
-def add_object(self, context):
+def create_base(radius, numSegments, z):
+    angleRad = math.radians( 360.0 / numSegments)
+    verts = [polar_coords(radius, angleRad * i, z) for i in range(numSegments) ]
+    return verts
+
+def add_escape_wheel(self, context):
     verts = []
     
     numSegments = (self.vertPerTooth - 1) * self.numTeeth
@@ -91,15 +96,33 @@ def add_object(self, context):
     vertsLowerTeethStartIdx = len(verts)
     verts.extend(vertsLowerTeeth)
 
+    vertsUpperBase = create_base(self.radius - self.base, numSegments, self.width / 2.0)
+    vertsLowerBase = create_base(self.radius - self.base, numSegments, -self.width / 2.0)
+    vertsUpperBaseStartIdx = len(verts)
+    verts.extend(vertsUpperBase)
+    vertsLowerBaseStartIdx = len(verts)
+    verts.extend(vertsLowerBase)
+
     faces = add_faces(vertsLowerTeethStartIdx, self.vertPerTooth,
         vertsUpperTeethStartIdx, vertsLowerTeethStartIdx - 1,
-        vertsLowerTeethStartIdx, len(verts) - 1)
+        vertsLowerTeethStartIdx, vertsUpperBaseStartIdx - 1,
+        vertsUpperBaseStartIdx, vertsLowerBaseStartIdx - 1,
+        vertsLowerBaseStartIdx, len(verts) - 1)
 
     mesh = bpy.data.meshes.new(name="Chronometer")
     mesh.from_pydata(verts, [], faces)
     # useful for development when the mesh may be invalid.
     mesh.validate(verbose=True)
-    object_data_add(context, mesh, operator=self)
+    obj = object_data_add(context, mesh, operator=self)
+
+    vertGrp = obj.vertex_groups.new(name="Upper Teeth")
+    vertGrp.add(list(range(vertsUpperTeethStartIdx, vertsLowerTeethStartIdx)), 1.0, 'ADD')
+    vertGrp = obj.vertex_groups.new(name="Lower Teeth")
+    vertGrp.add(list(range(vertsLowerTeethStartIdx, vertsUpperBaseStartIdx)), 1.0, 'ADD')
+    vertGrp = obj.vertex_groups.new(name="Upper Base")
+    vertGrp.add(list(range(vertsUpperBaseStartIdx, vertsLowerBaseStartIdx)), 1.0, 'ADD')
+    vertGrp = obj.vertex_groups.new(name="Lower Base")
+    vertGrp.add(list(range(vertsLowerBaseStartIdx, len(verts))), 1.0, 'ADD')
 
 
 class AddChronometer(Operator, AddObjectHelper):
@@ -193,7 +216,7 @@ class AddChronometer(Operator, AddObjectHelper):
             
     def execute(self, context):
 
-        add_object(self, context)
+        add_escape_wheel(self, context)
 
         return {'FINISHED'}
 
