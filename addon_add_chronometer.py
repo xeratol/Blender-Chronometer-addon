@@ -225,12 +225,25 @@ def add_impulse_roller(self, context):
     # faces.extend( bridge_loops(self.impRollerVert, startIdxLowerInner, startIdxUpperInner) )
     faces.extend( bridge_loops(self.impRollerVert, startIdxUpperOuter, startIdxUpperInner) )
     faces.extend( bridge_loops(self.impRollerVert, startIdxLowerInner, startIdxLowerOuter) )
+    # faces.append( [startIdxLowerOuter, startIdxUpperOuter, startIdxUpperInner, startIdxLowerOuter] )
 
     mesh = bpy.data.meshes.new(name="Impulse Roller")
     mesh.from_pydata(verts, [], faces)
     # useful for development when the mesh may be invalid.
     mesh.validate(verbose=True)
-    object_data_add(context, mesh, operator=self)
+    obj = object_data_add(context, mesh, operator=self)
+
+    vertGrp = obj.vertex_groups.new(name="Upper Outer")
+    vertGrp.add(list(range(startIdxUpperOuter, startIdxLowerOuter)), 1.0, 'ADD')
+
+    vertGrp = obj.vertex_groups.new(name="Lower Outer")
+    vertGrp.add(list(range(startIdxLowerOuter, startIdxUpperInner)), 1.0, 'ADD')
+
+    vertGrp = obj.vertex_groups.new(name="Upper Inner")
+    vertGrp.add(list(range(startIdxUpperInner, startIdxLowerInner)), 1.0, 'ADD')
+
+    vertGrp = obj.vertex_groups.new(name="Lower Inner")
+    vertGrp.add(list(range(startIdxLowerInner, len(verts))), 1.0, 'ADD')
 
 
 class AddChronometer(Operator, AddObjectHelper):
