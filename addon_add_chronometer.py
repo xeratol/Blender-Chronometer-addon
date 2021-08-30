@@ -93,7 +93,7 @@ def bridge_teeth_base(vertPerTooth, baseStartIdx, baseEndIdx, teethStartIdx, tee
             face = (i + 1, i, j, j + 1)
         j += 1
         faces.append(face)
-    face = (baseStartIdx, baseEndIdx, teethEndIdx, teethStartIdx, teethStartIdx + 1)
+    face = (baseStartIdx, baseEndIdx, teethEndIdx - 1, teethEndIdx, teethStartIdx)
     faces.append(face)
     return faces
 
