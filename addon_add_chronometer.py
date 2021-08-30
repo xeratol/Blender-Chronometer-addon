@@ -198,7 +198,7 @@ class AddChronometer(Operator, AddObjectHelper):
 
     tanDist: FloatProperty(
         name="Tangential Distance",
-        description="Tangential Distance of the Impulse Roller",
+        description="Tangential Distance of the Impulse Roller to the Escape Wheel",
         min=0.0,
         soft_max=1000.0,
         unit='LENGTH',
@@ -235,19 +235,23 @@ class AddChronometer(Operator, AddObjectHelper):
     def draw(self, context):
         layout = self.layout
 
+        layout.label(text="Escape Wheel")
         box = layout.box()
         box.prop(self, 'numTeeth')
         box.prop(self, 'vertPerTooth')
-
-        box = layout.box()
         box.prop(self, 'radius')
-        box.prop(self, 'tanDist')
         box.prop(self, 'base')
-        box.prop(self, 'width')
         box.prop(self, 'addendum')
 
+        layout.label(text="Impulse Roller")
         box = layout.box()
-        box.prop(self, 'internality')
+        box.prop(self, 'tanDist')
+
+        layout.label(text="Detent")
+
+        layout.label(text="Common")
+        box = layout.box()
+        box.prop(self, 'width')
 
         box = layout.box()
         box.prop(self, 'align', expand=True)
