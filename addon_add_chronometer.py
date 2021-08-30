@@ -42,6 +42,16 @@ def polar_coords(radius, angleRad, z = 0):
     vert = (radius * math.cos(angleRad), radius * math.sin(angleRad), z)
     return vert
 
+def flip_face(face):
+    newFace = face[::-1]
+    return newFace
+
+def flip_faces(faces):
+    newFaces = []
+    for f in faces:
+        newFaces.append(flip_face(f))
+    return newFaces
+
 def bridge_upper_lower_teeth(numVerts, startIdxUpper, startIdxLower):
     faces = []
     for i in range(numVerts - 1):
@@ -51,11 +61,27 @@ def bridge_upper_lower_teeth(numVerts, startIdxUpper, startIdxLower):
     faces.append(face)
     return faces
 
+def bridge_teeth_base(vertPerTooth, baseStartIdx, baseEndIdx, teethStartIdx, teethEndIdx):
+    faces = []
+    j = teethStartIdx
+    for i in range(baseStartIdx, baseEndIdx):
+        if (j % ( vertPerTooth ) == 0):
+            j += 1
+        if ((j + 1) % ( vertPerTooth ) == 0):
+            face = (i + 1, i, j, j + 1, j + 2)
+        else:
+            face = (i + 1, i, j, j + 1)
+        j += 1
+        faces.append(face)
+    face = (baseStartIdx, baseEndIdx, teethEndIdx, teethStartIdx, teethStartIdx + 1)
+    faces.append(face)
+    return faces
+
 def add_faces(numVertsTeeth, vertPerTooth,
         startIdxUpperTeeth, endIdxUpperTeeth,
-        startIdxLowerTeeth, endIdxLowerTeeth):
-        #startIdxUpperBase, endIdxUpperBase,
-        #startIdxLowerBase, endIdxLowerBase):
+        startIdxLowerTeeth, endIdxLowerTeeth,
+        startIdxUpperBase, endIdxUpperBase,
+        startIdxLowerBase, endIdxLowerBase):
     faces = []
 
     faces.extend(
@@ -63,6 +89,20 @@ def add_faces(numVertsTeeth, vertPerTooth,
             startIdxUpperTeeth, startIdxLowerTeeth
         )
     )
+
+    faces.extend(
+        bridge_teeth_base( vertPerTooth,
+            startIdxUpperBase, endIdxUpperBase,
+            startIdxUpperTeeth, endIdxUpperTeeth
+        )
+    )
+
+    faces.extend( flip_faces(
+        bridge_teeth_base( vertPerTooth,
+            startIdxLowerBase, endIdxLowerBase,
+            startIdxLowerTeeth, endIdxLowerTeeth
+        )
+    ))
 
     return faces
 
