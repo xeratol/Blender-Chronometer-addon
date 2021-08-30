@@ -52,7 +52,28 @@ def flip_faces(faces):
         newFaces.append(flip_face(f))
     return newFaces
 
+def move_verts(verts, offset):
+    for i, v in enumerate(verts):
+        verts[i] = [v[x] + offset[x] for x in range(3)]
+
+def rot_verts(verts, angleRad):
+    cosTheta = math.cos( angleRad )
+    sinTheta = math.sin( angleRad )
+
+    for i, v in enumerate(verts):
+        verts[i] = [v[0] * cosTheta - v[1] * sinTheta, v[0] * sinTheta + v[1] * cosTheta, v[2]]
+
+
 def bridge_upper_lower_teeth(numVerts, startIdxUpper, startIdxLower):
+    faces = []
+    for i in range(numVerts - 1):
+        face = (i + startIdxUpper + 1, i + startIdxUpper, i + startIdxLower, i + startIdxLower + 1)
+        faces.append(face)
+    face = (startIdxUpper, startIdxUpper + numVerts - 1, startIdxLower + numVerts - 1, startIdxLower)
+    faces.append(face)
+    return faces
+
+def bridge_loops(numVerts, startIdxUpper, startIdxLower):
     faces = []
     for i in range(numVerts - 1):
         face = (i + startIdxUpper + 1, i + startIdxUpper, i + startIdxLower, i + startIdxLower + 1)
@@ -65,10 +86,9 @@ def bridge_teeth_base(vertPerTooth, baseStartIdx, baseEndIdx, teethStartIdx, tee
     faces = []
     j = teethStartIdx
     for i in range(baseStartIdx, baseEndIdx):
-        if (j % ( vertPerTooth ) == 0):
-            j += 1
-        if ((j + 1) % ( vertPerTooth ) == 0):
+        if (j % vertPerTooth ==  vertPerTooth - 2):
             face = (i + 1, i, j, j + 1, j + 2)
+            j += 1
         else:
             face = (i + 1, i, j, j + 1)
         j += 1
@@ -84,64 +104,69 @@ def add_faces(numVertsTeeth, vertPerTooth,
         startIdxLowerBase, endIdxLowerBase):
     faces = []
 
-    faces.extend(
+    faces.extend( flip_faces(
         bridge_upper_lower_teeth( numVertsTeeth,
             startIdxUpperTeeth, startIdxLowerTeeth
         )
-    )
+    ))
 
-    faces.extend(
+    faces.extend( flip_faces(
         bridge_teeth_base( vertPerTooth,
             startIdxUpperBase, endIdxUpperBase,
             startIdxUpperTeeth, endIdxUpperTeeth
         )
-    )
+    ))
 
-    faces.extend( flip_faces(
+    faces.extend(
         bridge_teeth_base( vertPerTooth,
             startIdxLowerBase, endIdxLowerBase,
             startIdxLowerTeeth, endIdxLowerTeeth
         )
-    ))
+    )
 
     return faces
 
-def create_teeth(vertPerTooth, numSegments, radius, addendum, z):
+def create_teeth(vertPerTooth, numSegments, radius, dedendum, z):
     verts = []
-    for i in range(numSegments):
+    for i in reversed(range(numSegments)):
         angleRad = math.radians(i * 360.0 / numSegments)
-        if (i % vertPerTooth == 0):
-            radiusAdd = addendum
-            vert = polar_coords(radius + radiusAdd, angleRad, z)
-            verts.append(vert)
-        radiusAdd = ( ( (i % vertPerTooth ) / (vertPerTooth) ) ** 4 ) * addendum
+        radiusAdd = ( ( ( i % vertPerTooth ) / vertPerTooth ) ** 4 ) * dedendum
         vert = polar_coords(radius + radiusAdd, angleRad, z)
         verts.append(vert)
+        if (i % vertPerTooth == 0):
+            radiusAdd = dedendum
+            vert = polar_coords(radius + radiusAdd, angleRad, z)
+            verts.append(vert)
     return verts
 
 def create_base(radius, numSegments, z):
     angleRad = math.radians( 360.0 / numSegments)
-    verts = [polar_coords(radius, angleRad * i, z) for i in range(numSegments) ]
+    verts = [polar_coords(radius, angleRad * i, z) for i in reversed(range(numSegments)) ]
     return verts
 
 def add_escape_wheel(self, context):
-    verts = []
-    
     numSegments = (self.vertPerTooth - 1) * self.numTeeth
     
-    vertsUpperTeeth = create_teeth(self.vertPerTooth - 1, numSegments, self.radius, self.addendum, self.width / 2.0)
-    vertsLowerTeeth = create_teeth(self.vertPerTooth - 1, numSegments, self.radius, self.addendum, -self.width / 2.0)
+    verts = []
+    vertsUpperTeeth = create_teeth(self.vertPerTooth - 1, numSegments, self.radius - self.dedendum, self.dedendum, self.width / 2.0)
+    vertsLowerTeeth = create_teeth(self.vertPerTooth - 1, numSegments, self.radius - self.dedendum, self.dedendum, -self.width / 2.0)
     vertsUpperTeethStartIdx = len(verts)
     verts.extend(vertsUpperTeeth)
     vertsLowerTeethStartIdx = len(verts)
     verts.extend(vertsLowerTeeth)
 
-    vertsUpperBase = create_base(self.radius - self.base, numSegments, self.width / 2.0)
-    vertsLowerBase = create_base(self.radius - self.base, numSegments, -self.width / 2.0)
+    base = max(0, self.radius - self.dedendum - self.escWheelBase)
+    vertsUpperBase = create_base(base, numSegments, self.width / 2.0)
+    vertsLowerBase = create_base(base, numSegments, -self.width / 2.0)
     vertsUpperBaseStartIdx = len(verts)
     verts.extend(vertsUpperBase)
     vertsLowerBaseStartIdx = len(verts)
     verts.extend(vertsLowerBase)
+
+    impRollerCenter = [self.tanDist, self.radius, 0]
+    escWheelTheta = 2 * math.pi / self.numTeeth
+    angleRadOffset = math.atan( impRollerCenter[1] / impRollerCenter[0] ) - ( escWheelTheta / 2 )
+    rot_verts(verts, angleRadOffset)
 
     faces = add_faces(vertsLowerTeethStartIdx, self.vertPerTooth,
         vertsUpperTeethStartIdx, vertsLowerTeethStartIdx - 1,
@@ -149,7 +174,7 @@ def add_escape_wheel(self, context):
         vertsUpperBaseStartIdx, vertsLowerBaseStartIdx - 1,
         vertsLowerBaseStartIdx, len(verts) - 1)
 
-    mesh = bpy.data.meshes.new(name="Chronometer")
+    mesh = bpy.data.meshes.new(name="Escape Wheel")
     mesh.from_pydata(verts, [], faces)
     # useful for development when the mesh may be invalid.
     mesh.validate(verbose=True)
@@ -163,6 +188,41 @@ def add_escape_wheel(self, context):
     vertGrp.add(list(range(vertsUpperBaseStartIdx, vertsLowerBaseStartIdx)), 1.0, 'ADD')
     vertGrp = obj.vertex_groups.new(name="Lower Base")
     vertGrp.add(list(range(vertsLowerBaseStartIdx, len(verts))), 1.0, 'ADD')
+
+def add_impulse_roller(self, context):
+    center = [self.tanDist, self.radius, 0]
+    distBetween = math.sqrt( center[0] ** 2 + center[1] ** 2 )
+    escapeWheelTheta = 2 * math.pi / self.numTeeth
+    impulseRollerTheta = 2 * math.atan( ( self.radius * math.sin( escapeWheelTheta / 2 ) ) / ( distBetween - self.radius * math.cos( escapeWheelTheta / 2 )) )
+    impulseRollerRadius = ( self.radius * math.sin( escapeWheelTheta / 2 ) ) / math.sin( impulseRollerTheta / 2 )
+
+    if (center[0] <= impulseRollerRadius or center[1] <= impulseRollerRadius):
+        self.report({'WARNING'}, 'Not enough space between Locking Pallet and Impulse Roller.')
+
+    verts = []
+    startIdxUpperOuter = len(verts)
+    verts.extend( create_base(impulseRollerRadius, self.impRollerVert, 0) )
+    startIdxLowerOuter = len(verts)
+    verts.extend( create_base(impulseRollerRadius, self.impRollerVert, -self.width / 2.0) )
+
+    base = max(0, impulseRollerRadius - self.impRollerBase)
+    startIdxUpperInner = len(verts)
+    verts.extend( create_base(base, self.impRollerVert, 0) )
+    startIdxLowerInner = len(verts)
+    verts.extend( create_base(base, self.impRollerVert, -self.width / 2.0) )
+    move_verts(verts, center)
+
+    faces = []
+    faces.extend( bridge_loops(self.impRollerVert, startIdxUpperOuter, startIdxLowerOuter) )
+    # faces.extend( bridge_loops(self.impRollerVert, startIdxLowerInner, startIdxUpperInner) )
+    faces.extend( bridge_loops(self.impRollerVert, startIdxUpperInner, startIdxUpperOuter) )
+    faces.extend( bridge_loops(self.impRollerVert, startIdxLowerOuter, startIdxLowerInner) )
+
+    mesh = bpy.data.meshes.new(name="Impulse Roller")
+    mesh.from_pydata(verts, [], faces)
+    # useful for development when the mesh may be invalid.
+    mesh.validate(verbose=True)
+    object_data_add(context, mesh, operator=self)
 
 
 class AddChronometer(Operator, AddObjectHelper):
@@ -196,33 +256,50 @@ class AddChronometer(Operator, AddObjectHelper):
         default=10.0
     )
 
+    impRollerVert: IntProperty(
+        name="Vertices",
+        description="Vertices of the Impulse Roller",
+        default=32,
+        min=6,
+        soft_max=1000,
+    )
+    
     tanDist: FloatProperty(
         name="Tangential Distance",
         description="Tangential Distance of the Impulse Roller to the Escape Wheel",
-        min=0.0,
+        min=0.1,
         soft_max=1000.0,
         unit='LENGTH',
         default=5.0
     )
     
-    addendum: FloatProperty(
-        name="Addendum",
-        description="Addendum, extent of tooth above radius",
+    dedendum: FloatProperty(
+        name="Dedendum",
+        description="Dedendum, extent of tooth below radius",
         min=0.0,
         soft_max=1000.0,
         unit='LENGTH',
         default=2.0
     )
     
-    base: FloatProperty(
+    escWheelBase: FloatProperty(
         name="Base",
-        description="Base, extent of gear below radius",
+        description="Base, extent of escape wheel below radius",
         min=0.0,
         soft_max=1000.0,
         unit='LENGTH',
         default=2.0
     )
     
+    impRollerBase: FloatProperty(
+        name="Base",
+        description="Base, extent of impulse roller below radius",
+        min=0.0,
+        soft_max=1000.0,
+        unit='LENGTH',
+        default=2.0
+    )
+
     width: FloatProperty(
         name="Width",
         description="Width, thickness of Escape Wheel",
@@ -240,12 +317,14 @@ class AddChronometer(Operator, AddObjectHelper):
         box.prop(self, 'numTeeth')
         box.prop(self, 'vertPerTooth')
         box.prop(self, 'radius')
-        box.prop(self, 'base')
-        box.prop(self, 'addendum')
+        box.prop(self, 'escWheelBase')
+        box.prop(self, 'dedendum')
 
         layout.label(text="Impulse Roller")
         box = layout.box()
         box.prop(self, 'tanDist')
+        box.prop(self, 'impRollerVert')
+        box.prop(self, 'impRollerBase')
 
         layout.label(text="Detent")
 
@@ -260,6 +339,7 @@ class AddChronometer(Operator, AddObjectHelper):
             
     def execute(self, context):
 
+        add_impulse_roller(self, context)
         add_escape_wheel(self, context)
 
         return {'FINISHED'}
