@@ -75,11 +75,9 @@ def bridge_upper_lower_teeth(numVerts, startIdxUpper, startIdxLower):
 
 def bridge_loops(numVerts, startIdxUpper, startIdxLower):
     faces = []
-    for i in range(1, numVerts):
+    for i in range(numVerts - 1):
         face = (i + startIdxUpper + 1, i + startIdxUpper, i + startIdxLower, i + startIdxLower + 1)
         faces.append(face)
-    # face = (startIdxUpper, startIdxUpper + numVerts - 1, startIdxLower + numVerts - 1, startIdxLower)
-    # faces.append(face)
     return faces
 
 def bridge_teeth_base(vertPerTooth, baseStartIdx, baseEndIdx, teethStartIdx, teethEndIdx):
@@ -145,9 +143,8 @@ def create_base(radius, numSegments, z):
     return verts
 
 def create_arc(radius, numSegments, z, arc):
-    angleRad = arc / numSegments
-    verts = [ polar_coords(radius, math.radians(arc), z) ]
-    verts.extend([polar_coords(radius, angleRad * i, z) for i in reversed(range(numSegments)) ])
+    angleRad = arc / (numSegments - 1)
+    verts = [polar_coords(radius, angleRad * i, z) for i in reversed(range(numSegments)) ]
     return verts
 
 def add_escape_wheel(self, context):
