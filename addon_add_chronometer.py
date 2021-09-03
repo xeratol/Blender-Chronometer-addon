@@ -256,15 +256,15 @@ class AddChronometer(Operator, AddObjectHelper):
         name="Number of Teeth",
         description="Number of teeth of the Escape Wheel",
         default=12,
-        min=6,
+        min=9,
         soft_max=1000,
     )
     
     vertPerTooth: IntProperty(
         name="Vertices per Tooth",
         description="Number of Vertices per tooth, more for smoother",
-        default=4,
-        min=2,
+        default=8,
+        min=6,
         soft_max=100
     )
     
@@ -291,7 +291,7 @@ class AddChronometer(Operator, AddObjectHelper):
         min=0.1,
         soft_max=1000.0,
         unit='LENGTH',
-        default=5.0
+        default=8.0
     )
     
     dedendum: FloatProperty(
@@ -300,7 +300,7 @@ class AddChronometer(Operator, AddObjectHelper):
         min=0.0,
         soft_max=1000.0,
         unit='LENGTH',
-        default=2.0
+        default=2.5
     )
     
     escWheelBase: FloatProperty(
