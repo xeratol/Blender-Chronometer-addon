@@ -82,15 +82,17 @@ def bridge_loops(numVerts, startIdxUpper, startIdxLower):
 def bridge_teeth_base(vertPerTooth, baseStartIdx, baseEndIdx, teethStartIdx, teethEndIdx):
     faces = []
     j = teethStartIdx
-    for i in range(baseStartIdx, baseEndIdx):
-        if (j % vertPerTooth == 0):
+    face = (baseStartIdx + 1, baseStartIdx, teethEndIdx, teethStartIdx, teethStartIdx + 1)
+    faces.append(face)
+    for i in range(baseStartIdx + 1, baseEndIdx):
+        j += 1
+        if ((j + 1) % vertPerTooth == 0):
             face = (i + 1, i, j, j + 1, j + 2)
             j += 1
         else:
             face = (i + 1, i, j, j + 1)
-        j += 1
         faces.append(face)
-    face = (baseStartIdx, baseEndIdx, teethEndIdx - 1, teethEndIdx, teethStartIdx)
+    face = (baseStartIdx, baseEndIdx, teethEndIdx - 1, teethEndIdx)
     faces.append(face)
     return faces
 
@@ -123,17 +125,34 @@ def add_faces(numVertsTeeth, vertPerTooth,
 
     return faces
 
-def create_teeth(vertPerTooth, numSegments, radius, dedendum, z):
+def create_teeth(self, numTeeth, vertsPerTooth, radius, dedendum, z):
+    thetaPerTooth = 2 * math.pi / numTeeth
+    x = radius * ( 1 - math.cos( thetaPerTooth ) ) - dedendum
+    x /= radius * math.sin( thetaPerTooth )
+
+    if (x > -0.1):
+        self.report({'ERROR'}, 'Invalid combination of Number of Teeth ({0:.2f}), Escape Wheel Radius ({1:.2f}), and Dedendum ({2:.2f})'.format(numTeeth, self.radius, dedendum))
+        return []
+
+    teethShaperTheta = -4 * math.atan( x )
+    teethShaperRadius = radius * math.sin( thetaPerTooth ) / math.sin( teethShaperTheta / 2 )
+
+    teethShaperDist = radius + teethShaperRadius - dedendum
+    toothSegmentAngleInc = teethShaperTheta * 0.5 / (vertsPerTooth - 1)
+
+    if (teethShaperTheta > math.pi - 2 * thetaPerTooth):
+        self.report({'WARNING'}, 'Teeth are malformed. Try decreasing the Escape Wheel Dedendum, decreasing the Number of Teeth, or increasing the Escape Wheel Radius.')
+
     verts = []
-    for i in range(numSegments):
-        angleRad = math.radians(i * 360.0 / numSegments)
-        if (i % vertPerTooth == 0):
-            radiusAdd = 0 #dedendum
-            vert = polar_coords(radius + radiusAdd, angleRad, z)
-            verts.append(vert)
-        radiusAdd = ( ( 1.0 - ( i % vertPerTooth ) / vertPerTooth ) ** 4 ) * dedendum
-        vert = polar_coords(radius + radiusAdd, angleRad, z)
-        verts.append(vert)
+    for i in range(1, numTeeth + 1):
+        toothAngle = thetaPerTooth * i
+        toothVerts = []
+        for j in range(vertsPerTooth):
+            toothSegmentAngle = math.pi + toothAngle + j * toothSegmentAngleInc
+            toothVerts.append( polar_coords(teethShaperRadius, toothSegmentAngle, z) )
+        teethShaperCenter = polar_coords(teethShaperDist, toothAngle, 0)
+        move_verts(toothVerts, teethShaperCenter)
+        verts.extend( toothVerts[::-1] )
     return verts
 
 def create_base(radius, numSegments, z):
@@ -148,8 +167,15 @@ def create_arc(radius, numSegments, z, arc):
 
 def add_escape_wheel(self, context):
     verts = []
-    vertsUpperTeeth = create_teeth(self.vertPerTooth - 1, numSegments, self.radius - self.dedendum, self.dedendum, self.width / 2.0)
-    vertsLowerTeeth = create_teeth(self.vertPerTooth - 1, numSegments, self.radius - self.dedendum, self.dedendum, -self.width / 2.0)
+
+    vertsUpperTeeth = create_teeth(self, self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, self.width / 2.0)
+    if (len(vertsUpperTeeth) == 0):
+        return
+
+    vertsLowerTeeth = create_teeth(self, self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, -self.width / 2.0)
+    if (len(vertsLowerTeeth) == 0):
+        return
+
     vertsUpperTeethStartIdx = len(verts)
     verts.extend(vertsUpperTeeth)
     vertsLowerTeethStartIdx = len(verts)
@@ -194,11 +220,11 @@ def add_impulse_roller(self, context):
     center = [self.tanDist, self.radius, 0]
     distBetween = math.sqrt( center[0] ** 2 + center[1] ** 2 )
     escapeWheelTheta = 2 * math.pi / self.numTeeth
-    impulseRollerTheta = 2 * math.atan( ( self.radius * math.sin( escapeWheelTheta / 2 ) ) / ( distBetween - self.radius * math.cos( escapeWheelTheta / 2 )) )
-    impulseRollerRadius = ( self.radius * math.sin( escapeWheelTheta / 2 ) ) / math.sin( impulseRollerTheta / 2 )
+    impulseRollerTheta = 2 * math.atan( ( center[1] * math.sin( escapeWheelTheta / 2 ) ) / ( distBetween - center[1] * math.cos( escapeWheelTheta / 2 )) )
+    impulseRollerRadius = ( center[1] * math.sin( escapeWheelTheta / 2 ) ) / math.sin( impulseRollerTheta / 2 )
 
     if (center[0] <= impulseRollerRadius or center[1] <= impulseRollerRadius):
-        self.report({'WARNING'}, 'Not enough space between Locking Pallet and Impulse Roller.')
+        self.report({'WARNING'}, 'Not enough space between Locking Pallet and Impulse Roller. Suggestion: increase Tangential Distance.')
 
     biggerArc = 2 * math.pi - impulseRollerTheta
 
