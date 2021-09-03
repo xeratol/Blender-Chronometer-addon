@@ -63,7 +63,6 @@ def rot_verts(verts, angleRad):
     for i, v in enumerate(verts):
         verts[i] = [v[0] * cosTheta - v[1] * sinTheta, v[0] * sinTheta + v[1] * cosTheta, v[2]]
 
-
 def bridge_upper_lower_teeth(numVerts, startIdxUpper, startIdxLower):
     faces = []
     for i in range(numVerts - 1):
@@ -138,7 +137,7 @@ def create_teeth(vertPerTooth, numSegments, radius, dedendum, z):
     return verts
 
 def create_base(radius, numSegments, z):
-    angleRad = math.radians( 360.0 / numSegments)
+    angleRad = 2 * math.pi / numSegments
     verts = [polar_coords(radius, angleRad * i, z) for i in range(numSegments) ]
     return verts
 
@@ -148,8 +147,6 @@ def create_arc(radius, numSegments, z, arc):
     return verts
 
 def add_escape_wheel(self, context):
-    numSegments = (self.vertPerTooth - 1) * self.numTeeth
-    
     verts = []
     vertsUpperTeeth = create_teeth(self.vertPerTooth - 1, numSegments, self.radius - self.dedendum, self.dedendum, self.width / 2.0)
     vertsLowerTeeth = create_teeth(self.vertPerTooth - 1, numSegments, self.radius - self.dedendum, self.dedendum, -self.width / 2.0)
@@ -158,6 +155,7 @@ def add_escape_wheel(self, context):
     vertsLowerTeethStartIdx = len(verts)
     verts.extend(vertsLowerTeeth)
 
+    numSegments = (self.vertPerTooth - 1) * self.numTeeth
     base = max(0, self.radius - self.dedendum - self.escWheelBase)
     vertsUpperBase = create_base(base, numSegments, self.width / 2.0)
     vertsLowerBase = create_base(base, numSegments, -self.width / 2.0)
@@ -216,7 +214,7 @@ def add_impulse_roller(self, context):
     startIdxLowerInner = len(verts)
     verts.extend( create_arc(base, self.impRollerVert, -self.width / 2.0, biggerArc) )
 
-    rot_verts(verts, math.pi + math.atan( center[1] / center[0] ) + impulseRollerTheta / 2)
+    rot_verts(verts, math.pi + math.atan( center[1] / center[0] ) - impulseRollerTheta / 2)
     move_verts(verts, center)
 
     faces = []
