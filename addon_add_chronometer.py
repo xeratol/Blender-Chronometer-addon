@@ -174,20 +174,19 @@ def add_escape_wheel(self, context):
     verts = []
 
     vertsUpperTeeth = create_teeth(self, self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, self.width / 2.0)
-    if (len(vertsUpperTeeth) == 0):
-        return
-
     vertsLowerTeeth = create_teeth(self, self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, -self.width / 2.0)
-    if (len(vertsLowerTeeth) == 0):
-        return
-
     vertsUpperTeethStartIdx = len(verts)
     verts.extend(vertsUpperTeeth)
     vertsLowerTeethStartIdx = len(verts)
     verts.extend(vertsLowerTeeth)
 
     numSegments = (self.vertPerTooth - 1) * self.numTeeth
-    base = max(0, self.radius - self.dedendum - self.escWheelBase)
+    base = self.radius - self.dedendum - self.escWheelBase
+    if (base <= 0):
+        self.report({'WARNING'}, 'Invalid Escape Wheel Dimensions. Base automatically adjusted.')
+        self.escWheelBase = self.radius - self.dedendum
+        base = 0
+
     vertsUpperBase = create_base(base, numSegments, self.width / 2.0)
     vertsLowerBase = create_base(base, numSegments, -self.width / 2.0)
     vertsUpperBaseStartIdx = len(verts)
