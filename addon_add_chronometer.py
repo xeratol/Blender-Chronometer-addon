@@ -126,7 +126,7 @@ def add_faces(numVertsTeeth, vertPerTooth,
     return faces
 
 def create_teeth(self, numTeeth, vertsPerTooth, radius, dedendum, z):
-    thetaPerTooth = 2 * math.pi / numTeeth
+    thetaPerTooth = self.escWheelTheta
     x = radius * ( 1 - math.cos( thetaPerTooth ) ) - dedendum
     x /= radius * math.sin( thetaPerTooth )
 
@@ -223,7 +223,7 @@ def add_escape_wheel(self, context):
 def add_impulse_roller(self, context):
     center = [self.tanDist, self.radius, 0]
     distBetween = math.sqrt( center[0] ** 2 + center[1] ** 2 )
-    escapeWheelTheta = 2 * math.pi / self.numTeeth
+    escapeWheelTheta = self.escWheelTheta
     impulseRollerTheta = 2 * math.atan( ( center[1] * math.sin( escapeWheelTheta / 2 ) ) / ( distBetween - center[1] * math.cos( escapeWheelTheta / 2 )) )
     impulseRollerRadius = ( center[1] * math.sin( escapeWheelTheta / 2 ) ) / math.sin( impulseRollerTheta / 2 )
 
@@ -286,6 +286,11 @@ class AddChronometer(Operator, AddObjectHelper):
         default=12,
         min=9,
         soft_max=1000,
+    )
+
+    escWheelTheta: FloatProperty(
+        name="Theta",
+        description="Angle between Teeth (hidden)"
     )
     
     vertPerTooth: IntProperty(
@@ -388,6 +393,7 @@ class AddChronometer(Operator, AddObjectHelper):
             
     def execute(self, context):
 
+        self.escWheelTheta = 2 * math.pi / self.numTeeth
         add_impulse_roller(self, context)
         add_escape_wheel(self, context)
 
