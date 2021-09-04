@@ -131,17 +131,22 @@ def create_teeth(self, numTeeth, vertsPerTooth, radius, dedendum, z):
     x /= radius * math.sin( thetaPerTooth )
 
     if (x > -0.1):
-        self.report({'ERROR'}, 'Invalid combination of Number of Teeth ({0:.2f}), Escape Wheel Radius ({1:.2f}), and Dedendum ({2:.2f})'.format(numTeeth, self.radius, dedendum))
-        return []
+        self.report({'WARNING'}, 'Invalid Escape Wheel dimensions. Dedendum automatically adjusted.')
+        x = -0.1
+        dedendum = radius * ( 1 - math.cos(thetaPerTooth) + math.sin(thetaPerTooth) * 0.1 )
+        self.dedendum = dedendum # apply minimum dedendum
 
     teethShaperTheta = -4 * math.atan( x )
-    teethShaperRadius = radius * math.sin( thetaPerTooth ) / math.sin( teethShaperTheta / 2 )
-
-    teethShaperDist = radius + teethShaperRadius - dedendum
-    toothSegmentAngleInc = teethShaperTheta * 0.5 / (vertsPerTooth - 1)
 
     if (teethShaperTheta > math.pi - 2 * thetaPerTooth):
-        self.report({'WARNING'}, 'Teeth are malformed. Try decreasing the Escape Wheel Dedendum, decreasing the Number of Teeth, or increasing the Escape Wheel Radius.')
+        self.report({'WARNING'}, 'Invalid Teeth dimensions. Dedendum automatically adjusted.')
+        teethShaperTheta = math.pi - 2 * thetaPerTooth
+        dedendum = radius * ( 1 - math.cos(thetaPerTooth) + math.sin(thetaPerTooth) * math.tan(teethShaperTheta / 4) )
+        self.dedendum = dedendum # apply maximum dedendum
+
+    teethShaperRadius = radius * math.sin( thetaPerTooth ) / math.sin( teethShaperTheta / 2 )
+    teethShaperDist = radius + teethShaperRadius - dedendum
+    toothSegmentAngleInc = teethShaperTheta * 0.5 / (vertsPerTooth - 1)
 
     verts = []
     for i in range(1, numTeeth + 1):
