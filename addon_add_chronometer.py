@@ -194,10 +194,7 @@ def add_escape_wheel(self, context):
     vertsLowerBaseStartIdx = len(verts)
     verts.extend(vertsLowerBase)
 
-    impRollerCenter = [self.tanDist, self.radius, 0]
-    escWheelTheta = 2 * math.pi / self.numTeeth
-    angleRadOffset = math.atan( impRollerCenter[1] / impRollerCenter[0] ) - ( escWheelTheta / 2 )
-    rot_verts(verts, angleRadOffset)
+    rot_verts(verts, math.pi / 2)
 
     faces = add_faces(vertsLowerTeethStartIdx, self.vertPerTooth,
         vertsUpperTeethStartIdx, vertsLowerTeethStartIdx - 1,
@@ -221,15 +218,14 @@ def add_escape_wheel(self, context):
     vertGrp.add(list(range(vertsLowerBaseStartIdx, len(verts))), 1.0, 'ADD')
 
 def add_impulse_roller(self, context):
-    center = [self.tanDist, self.radius, 0]
-    distBetween = math.sqrt( center[0] ** 2 + center[1] ** 2 )
     escapeWheelTheta = self.escWheelTheta
+    maxRestTooth = self.numTeeth // 4 - 1
+    self.restTooth = min(maxRestTooth, self.restTooth)
+    tanDist = self.radius / math.tan( ( math.pi - escapeWheelTheta * (2 * self.restTooth + 1) ) / 2 )
+    center = [tanDist, self.radius, 0]
+    distBetween = math.sqrt( center[0] ** 2 + center[1] ** 2 )
     impulseRollerTheta = 2 * math.atan( ( center[1] * math.sin( escapeWheelTheta / 2 ) ) / ( distBetween - center[1] * math.cos( escapeWheelTheta / 2 )) )
     impulseRollerRadius = ( center[1] * math.sin( escapeWheelTheta / 2 ) ) / math.sin( impulseRollerTheta / 2 )
-
-    if (center[0] <= impulseRollerRadius or center[1] <= impulseRollerRadius):
-        self.report({'WARNING'}, 'Not enough space between Locking Pallet and Impulse Roller. Suggestion: increase Tangential Distance.')
-
     biggerArc = 2 * math.pi - impulseRollerTheta
 
     verts = []
@@ -318,13 +314,12 @@ class AddChronometer(Operator, AddObjectHelper):
         soft_max=1000,
     )
     
-    tanDist: FloatProperty(
-        name="Tangential Distance",
-        description="Tangential Distance of the Impulse Roller to the Escape Wheel",
-        min=0.1,
-        soft_max=1000.0,
-        unit='LENGTH',
-        default=8.0
+    restTooth: IntProperty(
+        name="Resting Tooth",
+        description="Tooth of the Escape Wheel where the Impulse Roller rests on",
+        min=1,
+        soft_max=100,
+        default=1
     )
     
     dedendum: FloatProperty(
@@ -376,7 +371,7 @@ class AddChronometer(Operator, AddObjectHelper):
 
         layout.label(text="Impulse Roller")
         box = layout.box()
-        box.prop(self, 'tanDist')
+        box.prop(self, 'restTooth')
         box.prop(self, 'impRollerVert')
         box.prop(self, 'impRollerBase')
 
