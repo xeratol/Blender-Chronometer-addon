@@ -217,7 +217,6 @@ def add_impulse_roller(self, context):
     verts.extend( create_arc(base, self.impRollerVert, -self.width / 2.0, biggerArc) )
 
     rot_verts(verts, math.pi + math.atan( center[1] / center[0] ) - impulseRollerTheta / 2)
-    move_verts(verts, center)
 
     faces = []
     faces.extend( bridge_loops(self.impRollerVert, startIdxLowerOuter, startIdxUpperOuter) )
@@ -232,6 +231,7 @@ def add_impulse_roller(self, context):
     # useful for development when the mesh may be invalid.
     mesh.validate(verbose=True)
     obj = object_data_add(context, mesh, operator=self)
+    obj.location = center
 
     vertGrp = obj.vertex_groups.new(name="Upper Outer")
     vertGrp.add(list(range(startIdxUpperOuter, startIdxLowerOuter)), 1.0, 'ADD')
