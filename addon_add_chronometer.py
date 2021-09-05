@@ -125,25 +125,7 @@ def add_faces(numVertsTeeth, vertPerTooth,
 
     return faces
 
-def create_teeth(self, numTeeth, vertsPerTooth, radius, dedendum, z):
-    thetaPerTooth = self.escWheelTheta
-    x = radius * ( 1 - math.cos( thetaPerTooth ) ) - dedendum
-    x /= radius * math.sin( thetaPerTooth )
-
-    if (x > -0.1):
-        self.report({'WARNING'}, 'Invalid Escape Wheel dimensions. Dedendum automatically adjusted.')
-        x = -0.1
-        dedendum = radius * ( 1 - math.cos(thetaPerTooth) + math.sin(thetaPerTooth) * 0.1 )
-        self.dedendum = dedendum # apply minimum dedendum
-
-    teethShaperTheta = -4 * math.atan( x )
-
-    if (teethShaperTheta > math.pi - 2 * thetaPerTooth):
-        self.report({'WARNING'}, 'Invalid Teeth dimensions. Dedendum automatically adjusted.')
-        teethShaperTheta = math.pi - 2 * thetaPerTooth
-        dedendum = radius * ( 1 - math.cos(thetaPerTooth) + math.sin(thetaPerTooth) * math.tan(teethShaperTheta / 4) )
-        self.dedendum = dedendum # apply maximum dedendum
-
+def create_teeth(numTeeth, vertsPerTooth, radius, dedendum, teethShaperTheta, thetaPerTooth, z):
     teethShaperRadius = radius * math.sin( thetaPerTooth ) / math.sin( teethShaperTheta / 2 )
     teethShaperDist = radius + teethShaperRadius - dedendum
     toothSegmentAngleInc = teethShaperTheta * 0.5 / (vertsPerTooth - 1)
@@ -173,8 +155,8 @@ def create_arc(radius, numSegments, z, arc):
 def add_escape_wheel(self, context):
     verts = []
 
-    vertsUpperTeeth = create_teeth(self, self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, self.width / 2.0)
-    vertsLowerTeeth = create_teeth(self, self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, -self.width / 2.0)
+    vertsUpperTeeth = create_teeth(self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, self.teethShaperTheta, self.escWheelTheta, self.width / 2.0)
+    vertsLowerTeeth = create_teeth(self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, self.teethShaperTheta, self.escWheelTheta, -self.width / 2.0)
     vertsUpperTeethStartIdx = len(verts)
     verts.extend(vertsUpperTeeth)
     vertsLowerTeethStartIdx = len(verts)
@@ -182,10 +164,6 @@ def add_escape_wheel(self, context):
 
     numSegments = (self.vertPerTooth - 1) * self.numTeeth
     base = self.radius - self.dedendum - self.escWheelBase
-    if (base <= 0):
-        self.report({'WARNING'}, 'Invalid Escape Wheel Dimensions. Base automatically adjusted.')
-        self.escWheelBase = self.radius - self.dedendum
-        base = 0
 
     vertsUpperBase = create_base(base, numSegments, self.width / 2.0)
     vertsLowerBase = create_base(base, numSegments, -self.width / 2.0)
@@ -219,8 +197,6 @@ def add_escape_wheel(self, context):
 
 def add_impulse_roller(self, context):
     escapeWheelTheta = self.escWheelTheta
-    maxRestTooth = self.numTeeth // 4 - 1
-    self.restTooth = min(maxRestTooth, self.restTooth)
     tanDist = self.radius / math.tan( ( math.pi - escapeWheelTheta * (2 * self.restTooth + 1) ) / 2 )
     center = [tanDist, self.radius, 0]
     distBetween = math.sqrt( center[0] ** 2 + center[1] ** 2 )
@@ -284,11 +260,6 @@ class AddChronometer(Operator, AddObjectHelper):
         soft_max=1000,
     )
 
-    escWheelTheta: FloatProperty(
-        name="Theta",
-        description="Angle between Teeth (hidden)"
-    )
-    
     vertPerTooth: IntProperty(
         name="Vertices per Tooth",
         description="Number of Vertices per tooth, more for smoother",
@@ -300,28 +271,12 @@ class AddChronometer(Operator, AddObjectHelper):
     radius: FloatProperty(
         name="Radius",
         description="Radius of the Escape Wheel",
-        min=0.0,
+        min=10.0,
         soft_max=1000.0,
         unit='LENGTH',
         default=10.0
     )
 
-    impRollerVert: IntProperty(
-        name="Vertices",
-        description="Vertices of the Impulse Roller",
-        default=32,
-        min=6,
-        soft_max=1000,
-    )
-    
-    restTooth: IntProperty(
-        name="Resting Tooth",
-        description="Tooth of the Escape Wheel where the Impulse Roller rests on",
-        min=1,
-        soft_max=100,
-        default=1
-    )
-    
     dedendum: FloatProperty(
         name="Dedendum",
         description="Dedendum, extent of tooth below radius",
@@ -340,6 +295,34 @@ class AddChronometer(Operator, AddObjectHelper):
         default=2.0
     )
     
+    escWheelTheta: FloatProperty(
+        name="Escape Wheel Theta",
+        description="Angle between Teeth (hidden)"
+    )
+    
+    teethShaperTheta: FloatProperty(
+        name="Teeth Shaper Theta",
+        description="Angle of Teeth Shaper overlapping with Escape Wheel (hidden)"
+    )
+    
+    # Impulse Roller Properties
+
+    restTooth: IntProperty(
+        name="Resting Tooth",
+        description="Tooth of the Escape Wheel where the Impulse Roller rests on",
+        min=1,
+        soft_max=100,
+        default=1
+    )
+    
+    impRollerVert: IntProperty(
+        name="Vertices",
+        description="Vertices of the Impulse Roller",
+        default=32,
+        min=6,
+        soft_max=1000,
+    )
+    
     impRollerBase: FloatProperty(
         name="Base",
         description="Base, extent of impulse roller below radius",
@@ -348,6 +331,10 @@ class AddChronometer(Operator, AddObjectHelper):
         unit='LENGTH',
         default=2.0
     )
+
+    # Detent Properties
+
+    # Common Properties
 
     width: FloatProperty(
         name="Width",
@@ -385,10 +372,43 @@ class AddChronometer(Operator, AddObjectHelper):
         box.prop(self, 'align', expand=True)
         box.prop(self, 'location', expand=True)
         box.prop(self, 'rotation', expand=True)
+
+
+    def validate(self):
+        self.escWheelTheta = 2 * math.pi / self.numTeeth
+
+        maxRestTooth = self.numTeeth // 4 - 1
+        self.restTooth = min(maxRestTooth, self.restTooth)
+
+        x = self.radius * ( 1 - math.cos( self.escWheelTheta ) ) - self.dedendum
+        x /= self.radius * math.sin( self.escWheelTheta )
+
+        if (x > -0.1):
+            self.report({'WARNING'}, 'Invalid Escape Wheel dimensions. Dedendum automatically adjusted.')
+            x = -0.1
+            dedendum = self.radius * ( 1 - math.cos(self.escWheelTheta) + math.sin(self.escWheelTheta) * 0.1 )
+            self.dedendum = dedendum # apply minimum dedendum
+
+        self.teethShaperTheta = -4 * math.atan( x )
+
+        if (self.teethShaperTheta > math.pi - 2 * self.escWheelTheta):
+            self.report({'WARNING'}, 'Invalid Teeth dimensions. Dedendum automatically adjusted.')
+            self.teethShaperTheta = math.pi - 2 * self.escWheelTheta
+            dedendum = self.radius * ( 1 - math.cos(self.escWheelTheta) + math.sin(self.escWheelTheta) * math.tan(self.teethShaperTheta / 4) )
+            self.dedendum = dedendum # apply maximum dedendum
+
+        if (self.radius - self.dedendum <= self.escWheelBase):
+            self.report({'WARNING'}, 'Invalid Escape Wheel Dimensions. Base automatically adjusted.')
+            self.escWheelBase = self.radius - self.dedendum
+
+        return True
+
             
     def execute(self, context):
 
-        self.escWheelTheta = 2 * math.pi / self.numTeeth
+        if (not self.validate()):
+            return
+            
         add_impulse_roller(self, context)
         add_escape_wheel(self, context)
 
