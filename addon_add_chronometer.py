@@ -33,9 +33,9 @@ from bpy.types import Operator
 from bpy.props import (
     FloatProperty,
     IntProperty,
-    EnumProperty
 )
 from bpy_extras.object_utils import AddObjectHelper, object_data_add
+import mathutils
 import math
 
 def polar_coords(radius, angleRad, z = 0):
@@ -196,27 +196,21 @@ def add_escape_wheel(self, context):
     vertGrp.add(list(range(vertsLowerBaseStartIdx, len(verts))), 1.0, 'ADD')
 
 def add_impulse_roller(self, context):
-    escapeWheelTheta = self.escWheelTheta
-    tanDist = self.radius / math.tan( ( math.pi - escapeWheelTheta * (2 * self.restTooth + 1) ) / 2 )
-    center = [tanDist, self.radius, 0]
-    distBetween = math.sqrt( center[0] ** 2 + center[1] ** 2 )
-    impulseRollerTheta = 2 * math.atan( ( center[1] * math.sin( escapeWheelTheta / 2 ) ) / ( distBetween - center[1] * math.cos( escapeWheelTheta / 2 )) )
-    impulseRollerRadius = ( center[1] * math.sin( escapeWheelTheta / 2 ) ) / math.sin( impulseRollerTheta / 2 )
-    biggerArc = 2 * math.pi - impulseRollerTheta
+    biggerArc = 2 * math.pi - self.impRollerTheta
 
     verts = []
     startIdxUpperOuter = len(verts)
-    verts.extend( create_arc(impulseRollerRadius, self.impRollerVert, 0, biggerArc) )
+    verts.extend( create_arc(self.impRollerRadius, self.impRollerVert, 0, biggerArc) )
     startIdxLowerOuter = len(verts)
-    verts.extend( create_arc(impulseRollerRadius, self.impRollerVert, -self.width / 2.0, biggerArc) )
+    verts.extend( create_arc(self.impRollerRadius, self.impRollerVert, -self.width / 2.0, biggerArc) )
 
-    base = max(0, impulseRollerRadius - self.impRollerBase)
+    base = max(0, self.impRollerRadius - self.impRollerBase)
     startIdxUpperInner = len(verts)
     verts.extend( create_arc(base, self.impRollerVert, 0, biggerArc) )
     startIdxLowerInner = len(verts)
     verts.extend( create_arc(base, self.impRollerVert, -self.width / 2.0, biggerArc) )
 
-    rot_verts(verts, math.pi + math.atan( center[1] / center[0] ) - impulseRollerTheta / 2)
+    rot_verts(verts, math.pi + math.atan( self.impRollerCenter[1] / self.impRollerCenter[0] ) - self.impRollerTheta / 2)
 
     faces = []
     faces.extend( bridge_loops(self.impRollerVert, startIdxLowerOuter, startIdxUpperOuter) )
@@ -231,7 +225,7 @@ def add_impulse_roller(self, context):
     # useful for development when the mesh may be invalid.
     mesh.validate(verbose=True)
     obj = object_data_add(context, mesh, operator=self)
-    obj.location = center
+    obj.location = self.impRollerCenter
 
     vertGrp = obj.vertex_groups.new(name="Upper Outer")
     vertGrp.add(list(range(startIdxUpperOuter, startIdxLowerOuter)), 1.0, 'ADD')
@@ -245,12 +239,85 @@ def add_impulse_roller(self, context):
     vertGrp = obj.vertex_groups.new(name="Lower Inner")
     vertGrp.add(list(range(startIdxLowerInner, len(verts))), 1.0, 'ADD')
 
+def add_detent(self, context):
+    i = [ -self.impRollerCenter[0], self.lockingPalletDepth ] # locking pallet has a depth of 1 unit
+
+    if ( (self.impRollerCenter[0] - i[0]) ** 2 + (self.impRollerCenter[1] - i[1]) ** 2 >= (self.impRollerRadius * 1.2) ** 2 ):
+        minLeftEnd = -self.impRollerCenter[0] - 2 * self.radius
+        maxLeftEnd = -self.impRollerCenter[0] - 0.1 * self.radius
+        # minM = i[1] / (i[0] - minLeftEnd)
+        # maxM = i[1] / (i[0] - maxLeftEnd)
+
+        r = self.impRollerRadius * self.dischargeRadius / 100
+        self.dischargePalletTip = [
+            r * math.cos( math.pi - self.dischargeAngle ),
+            r * math.sin( self.dischargeAngle )
+        ]
+
+        minDetentAngle = math.atan2( i[1], (i[0] - minLeftEnd) )
+        maxDetentAngle = math.atan2( i[1], (i[0] - maxLeftEnd) )
+        #self.report({'INFO'}, '{0} - {1}'.format( math.degrees(minDetentAngle), math.degrees(maxDetentAngle)))
+        detentAngle = math.atan2( self.dischargePalletTip[1] - i[1], self.dischargePalletTip[0] - i[0] )
+        #self.report({'INFO'}, "{0}".format(math.degrees(detentAngle)))
+
+        if (detentAngle > maxDetentAngle):
+            detentAngle = maxDetentAngle
+        elif (detentAngle < minDetentAngle):
+            detentAngle = minDetentAngle
+        m = math.tan( detentAngle )
+        #self.report({'INFO'}, "{0}".format(math.degrees(detentAngle)))
+        self.detentLeftEnd = i[0] - i[1] / m
+
+        minDetentLength = abs( self.detentLeftEnd ) * math.cos( detentAngle ) - math.sqrt( self.impRollerRadius ** 2 - ( self.detentLeftEnd * math.sin( detentAngle ) ) ** 2 )
+        minDischargeAngle = math.asin( minDetentLength * math.sin( detentAngle ) / self.impRollerRadius )
+        maxDischargeAngle = ( math.pi * 0.5 ) - detentAngle
+        #self.report({'INFO'}, '{0} - {1}'.format( math.degrees(minDischargeAngle), math.degrees(maxDischargeAngle)))
+
+        if (self.dischargeAngle > maxDischargeAngle):
+            self.dischargeAngle = maxDischargeAngle
+        elif ( self.dischargeAngle < minDischargeAngle ):
+            self.dischargeAngle = minDischargeAngle
+
+        r = math.sin( detentAngle ) * abs( self.detentLeftEnd ) / math.sin( math.pi - detentAngle - self.dischargeAngle )
+        self.dischargeRadius = max( 1, min( 100 * r / self.impRollerRadius, 100 ) )
+
+        r = self.impRollerRadius * self.dischargeRadius / 100
+        self.dischargePalletTip = [
+            r * math.cos( math.pi - self.dischargeAngle ),
+            r * math.sin( self.dischargeAngle )
+        ]
+
+        self.detentLength = math.sqrt( ( self.detentLeftEnd - self.dischargePalletTip[0] ) ** 2 + ( self.dischargePalletTip[1] ) ** 2 )
+
+    else:
+        self.report({'ERROR'}, 'Not enough space between Impulse Roller and Locking Pallet')
+
+    verts = []
+
+    verts.append( (self.dischargePalletTip[0], self.dischargePalletTip[1], self.width / 2) )
+    verts.append( (self.detentLeftEnd, 0, self.width / 2) )
+    verts.append( (i[0], i[1], self.width / 2) )
+    #verts.append( (minLeftEnd, 0, self.width / 2) )
+    #verts.append( (maxLeftEnd, 0, self.width / 2) )
+    #move_verts(verts, self.impRollerCenter)
+
+    faces = []
+
+    mesh = bpy.data.meshes.new(name="Detent")
+    mesh.from_pydata(verts, [], faces)
+    # useful for development when the mesh may be invalid.
+    mesh.validate(verbose=True)
+
+    obj = object_data_add(context, mesh, operator=self)
+    obj.location = self.impRollerCenter
 
 class AddChronometer(Operator, AddObjectHelper):
     """Create a new Chronometer Escapement"""
     bl_idname = "mesh.primitive_chronometer"
     bl_label = "Add Chronometer Escapement"
     bl_options = {'REGISTER', 'UNDO', 'PRESET'}
+
+    # Escape Wheel Properties
 
     numTeeth: IntProperty(
         name="Number of Teeth",
@@ -295,10 +362,7 @@ class AddChronometer(Operator, AddObjectHelper):
         default=2.0
     )
     
-    escWheelTheta: FloatProperty(
-        name="Escape Wheel Theta",
-        description="Angle between Teeth (hidden)"
-    )
+    escWheelTheta = 0.0
     
     teethShaperTheta: FloatProperty(
         name="Teeth Shaper Theta",
@@ -332,7 +396,38 @@ class AddChronometer(Operator, AddObjectHelper):
         default=2.0
     )
 
+    impRollerCenter = [0.0, 0.0]
+    impRollerRadius = 0.0
+    impRollerTheta = 0.0
+
     # Detent Properties
+
+    dischargeAngle: FloatProperty(
+        name="Angle of Discharge Pallet",
+        description="Angle of Discharge Pallet for Escape Wheel to release energy",
+        min=0.0,
+        max=math.pi / 2,
+        default=math.pi / 4,
+        step=1,
+        precision=2,
+        subtype='ANGLE',
+    )
+
+    dischargeRadius: FloatProperty(
+        name="Discharge Pallet Radius Factor",
+        description="Radius of Discharge Pallet relative to Radius of Impulse Roller",
+        min=1.0,
+        max=100.0,
+        default=100.0,
+        step=10,
+        precision=1,
+        subtype='PERCENTAGE',
+    )
+
+    lockingPalletDepth = 1.0
+    dischargePalletTip = [0.0, 0.0]
+    detentLeftEnd = 0.0
+    detentLength = 0.0
 
     # Common Properties
 
@@ -363,6 +458,9 @@ class AddChronometer(Operator, AddObjectHelper):
         box.prop(self, 'impRollerBase')
 
         layout.label(text="Detent")
+        box = layout.box()
+        box.prop(self, 'dischargeAngle')
+        box.prop(self, 'dischargeRadius')
 
         layout.label(text="Common")
         box = layout.box()
@@ -377,6 +475,7 @@ class AddChronometer(Operator, AddObjectHelper):
     def validate(self):
         self.escWheelTheta = 2 * math.pi / self.numTeeth
 
+        # Escape Wheel Computations
         maxRestTooth = self.numTeeth // 4 - 1
         self.restTooth = min(maxRestTooth, self.restTooth)
 
@@ -386,20 +485,29 @@ class AddChronometer(Operator, AddObjectHelper):
         if (x > -0.1):
             self.report({'WARNING'}, 'Invalid Escape Wheel dimensions. Dedendum automatically adjusted.')
             x = -0.1
-            dedendum = self.radius * ( 1 - math.cos(self.escWheelTheta) + math.sin(self.escWheelTheta) * 0.1 )
-            self.dedendum = dedendum # apply minimum dedendum
+            minDedendum = self.radius * ( 1 - math.cos(self.escWheelTheta) + math.sin(self.escWheelTheta) * 0.1 )
+            self.dedendum = minDedendum
 
         self.teethShaperTheta = -4 * math.atan( x )
 
         if (self.teethShaperTheta > math.pi - 2 * self.escWheelTheta):
             self.report({'WARNING'}, 'Invalid Teeth dimensions. Dedendum automatically adjusted.')
             self.teethShaperTheta = math.pi - 2 * self.escWheelTheta
-            dedendum = self.radius * ( 1 - math.cos(self.escWheelTheta) + math.sin(self.escWheelTheta) * math.tan(self.teethShaperTheta / 4) )
-            self.dedendum = dedendum # apply maximum dedendum
+            maxDedendum = self.radius * ( 1 - math.cos(self.escWheelTheta) + math.sin(self.escWheelTheta) * math.tan(self.teethShaperTheta / 4) )
+            self.dedendum = maxDedendum
 
         if (self.radius - self.dedendum <= self.escWheelBase):
             self.report({'WARNING'}, 'Invalid Escape Wheel Dimensions. Base automatically adjusted.')
-            self.escWheelBase = self.radius - self.dedendum
+            self.escWheelBase = self.radius - self.dedendum # maximum escape wheel base
+
+        # Impulse Roller Computations
+        tanDist = self.radius / math.tan( ( math.pi - self.escWheelTheta * (2 * self.restTooth + 1) ) / 2 )
+        self.impRollerCenter = [tanDist, self.radius, 0]
+        distBetween = math.sqrt( self.impRollerCenter[0] ** 2 + self.impRollerCenter[1] ** 2 )
+        self.impRollerTheta = 2 * math.atan( ( self.impRollerCenter[1] * math.sin( self.escWheelTheta / 2 ) ) / ( distBetween - self.impRollerCenter[1] * math.cos( self.escWheelTheta / 2 )) )
+        self.impRollerRadius = ( self.impRollerCenter[1] * math.sin( self.escWheelTheta / 2 ) ) / math.sin( self.impRollerTheta / 2 )
+
+        # Detent Computations
 
         return True
 
@@ -411,6 +519,7 @@ class AddChronometer(Operator, AddObjectHelper):
             
         add_impulse_roller(self, context)
         add_escape_wheel(self, context)
+        add_detent(self, context)
 
         return {'FINISHED'}
 
