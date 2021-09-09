@@ -247,6 +247,7 @@ def add_detent(self, context):
     #verts.append( (i[0], i[1], self.width / 2) )
     #verts.append( (minLeftEnd, 0, self.width / 2) )
     #verts.append( (maxLeftEnd, 0, self.width / 2) )
+    move_verts(verts, [-self.detentLeftEnd, 0, 0])
 
     faces = []
 
@@ -256,7 +257,7 @@ def add_detent(self, context):
     mesh.validate(verbose=True)
 
     obj = object_data_add(context, mesh, operator=self)
-    obj.location = self.impRollerCenter
+    obj.location = (self.detentLeftEnd + self.impRollerCenter[0], self.impRollerCenter[1], 0)
 
 class AddChronometer(Operator, AddObjectHelper):
     """Create a new Chronometer Escapement"""
