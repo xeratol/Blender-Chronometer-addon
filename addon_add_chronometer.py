@@ -155,8 +155,8 @@ def create_arc(radius, numSegments, z, arc):
 def add_escape_wheel(self, context):
     verts = []
 
-    vertsUpperTeeth = create_teeth(self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, self.teethShaperTheta, self.escWheelTheta, self.width / 2.0)
-    vertsLowerTeeth = create_teeth(self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, self.teethShaperTheta, self.escWheelTheta, -self.width / 2.0)
+    vertsUpperTeeth = create_teeth(self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, self.teethShaperTheta, self.escWheelTheta, 0)
+    vertsLowerTeeth = create_teeth(self.numTeeth, self.vertPerTooth, self.radius, self.dedendum, self.teethShaperTheta, self.escWheelTheta, -self.width)
     vertsUpperTeethStartIdx = len(verts)
     verts.extend(vertsUpperTeeth)
     vertsLowerTeethStartIdx = len(verts)
@@ -165,8 +165,8 @@ def add_escape_wheel(self, context):
     numSegments = (self.vertPerTooth - 1) * self.numTeeth
     base = self.radius - self.dedendum - self.escWheelBase
 
-    vertsUpperBase = create_base(base, numSegments, self.width / 2.0)
-    vertsLowerBase = create_base(base, numSegments, -self.width / 2.0)
+    vertsUpperBase = create_base(base, numSegments, 0)
+    vertsLowerBase = create_base(base, numSegments, -self.width)
     vertsUpperBaseStartIdx = len(verts)
     verts.extend(vertsUpperBase)
     vertsLowerBaseStartIdx = len(verts)
@@ -202,13 +202,13 @@ def add_impulse_roller(self, context):
     startIdxUpperOuter = len(verts)
     verts.extend( create_arc(self.impRollerRadius, self.impRollerVert, 0, biggerArc) )
     startIdxLowerOuter = len(verts)
-    verts.extend( create_arc(self.impRollerRadius, self.impRollerVert, -self.width / 2.0, biggerArc) )
+    verts.extend( create_arc(self.impRollerRadius, self.impRollerVert, -self.width, biggerArc) )
 
     base = max(0, self.impRollerRadius - self.impRollerBase)
     startIdxUpperInner = len(verts)
     verts.extend( create_arc(base, self.impRollerVert, 0, biggerArc) )
     startIdxLowerInner = len(verts)
-    verts.extend( create_arc(base, self.impRollerVert, -self.width / 2.0, biggerArc) )
+    verts.extend( create_arc(base, self.impRollerVert, -self.width, biggerArc) )
 
     rot_verts(verts, math.pi + math.atan( self.impRollerCenter[1] / self.impRollerCenter[0] ) - self.impRollerTheta / 2)
 
@@ -242,14 +242,46 @@ def add_impulse_roller(self, context):
 def add_detent(self, context):
     verts = []
 
-    verts.append( (self.dischargePalletTip[0], self.dischargePalletTip[1], self.width / 2) )
-    verts.append( (self.detentLeftEnd, 0, self.width / 2) )
-    #verts.append( (i[0], i[1], self.width / 2) )
-    #verts.append( (minLeftEnd, 0, self.width / 2) )
-    #verts.append( (maxLeftEnd, 0, self.width / 2) )
+    # left end
+    verts.append( (self.detentLeftEnd, 1, 0) )
+    verts.append( (self.detentLeftEnd, 0, 0) )
+    verts.append( (self.detentLeftEnd, 0, self.detentWidth) )
+    verts.append( (self.detentLeftEnd, 1, self.detentWidth) )
+
+    # locking pallet
+    verts.append( (-self.impRollerCenter[0], 1, -self.width) )
+    verts.append( (-self.impRollerCenter[0], -self.lockingPalletDepth, -self.width) )
+    verts.append( (-self.impRollerCenter[0], -self.lockingPalletDepth, 0) )
+    verts.append( (-self.impRollerCenter[0], 1, 0) )
+    
+    verts.append( (-self.impRollerCenter[0] + 1, 1, -self.width) )
+    verts.append( (-self.impRollerCenter[0] + 1, -self.lockingPalletDepth + 1, -self.width) )
+    verts.append( (-self.impRollerCenter[0] + 1, -self.lockingPalletDepth + 1, 0) )
+    verts.append( (-self.impRollerCenter[0] + 1, 1, 0) )
+
+    # right end
+    verts.append( (self.detentLeftEnd + self.detentLength, 1, 0) )
+    verts.append( (self.detentLeftEnd + self.detentLength, 0, 0) )
+    verts.append( (self.detentLeftEnd + self.detentLength, 0, self.detentWidth) )
+    verts.append( (self.detentLeftEnd + self.detentLength, 1, self.detentWidth) )
+
     move_verts(verts, [-self.detentLeftEnd, 0, 0])
 
     faces = []
+
+    faces.append( (0, 1, 2, 3) )
+    faces.append( (0, 3, 15, 12) )
+    faces.append( (3, 2, 14, 15) )
+    faces.append( (2, 1, 13, 14) )
+    faces.append( (1, 0, 12, 13) )
+    faces.append( (12, 15, 14, 13) )
+
+    faces.append( (4, 5, 6, 7) )
+    faces.append( (4, 7, 11, 8) )
+    faces.append( (7, 6, 10, 11) )
+    faces.append( (6, 5, 9, 10) )
+    faces.append( (5, 4, 8, 9) )
+    faces.append( (8, 9, 10, 11) )
 
     mesh = bpy.data.meshes.new(name="Detent")
     mesh.from_pydata(verts, [], faces)
@@ -350,6 +382,15 @@ class AddChronometer(Operator, AddObjectHelper):
 
     # Detent Properties
 
+    lockingPalletDepth: FloatProperty(
+        name="Depth of the Locking Pallet",
+        description="Depth of the Pallet locking the Escape Wheel",
+        min=1.0,
+        max=100.0,
+        default=1.0,
+        unit='LENGTH',
+    )
+
     dischargeAngle: FloatProperty(
         name="Angle of Discharge Pallet",
         description="Angle of Discharge Pallet for Escape Wheel to release energy",
@@ -372,7 +413,15 @@ class AddChronometer(Operator, AddObjectHelper):
         subtype='PERCENTAGE',
     )
 
-    lockingPalletDepth = 1.0
+    detentWidth: FloatProperty(
+        name="Width",
+        description="Width, thickness of the Detent",
+        min=1.0,
+        soft_max=100.0,
+        unit='LENGTH',
+        default=5.0
+    )
+
     dischargePalletTip = [0.0, 0.0]
     detentLeftEnd = 0.0
     detentLength = 0.0
@@ -381,7 +430,7 @@ class AddChronometer(Operator, AddObjectHelper):
 
     width: FloatProperty(
         name="Width",
-        description="Width, thickness of Escape Wheel",
+        description="Width, thickness of Escape Wheel and Impulse Roller",
         min=0.0,
         soft_max=1000.0,
         unit='LENGTH',
@@ -398,21 +447,21 @@ class AddChronometer(Operator, AddObjectHelper):
         box.prop(self, 'radius')
         box.prop(self, 'escWheelBase')
         box.prop(self, 'dedendum')
+        box.prop(self, 'width') # shared with Impulse Roller
 
         layout.label(text="Impulse Roller")
         box = layout.box()
         box.prop(self, 'restTooth')
         box.prop(self, 'impRollerVert')
         box.prop(self, 'impRollerBase')
+        box.prop(self, 'width') # shared with Escape Wheel
 
         layout.label(text="Detent")
         box = layout.box()
+        box.prop(self, 'lockingPalletDepth')
         box.prop(self, 'dischargeAngle')
         box.prop(self, 'dischargeRadius')
-
-        layout.label(text="Common")
-        box = layout.box()
-        box.prop(self, 'width')
+        box.prop(self, 'detentWidth')
 
         box = layout.box()
         box.prop(self, 'align', expand=True)
@@ -456,14 +505,17 @@ class AddChronometer(Operator, AddObjectHelper):
         self.impRollerRadius = ( self.impRollerCenter[1] * math.sin( self.escWheelTheta / 2 ) ) / math.sin( self.impRollerTheta / 2 )
 
         # Detent Computations
-        i = [ -self.impRollerCenter[0], self.lockingPalletDepth ] # locking pallet has a depth of 1 unit
+        i = [ -self.impRollerCenter[0], self.lockingPalletDepth ]
+        r = self.impRollerRadius * self.dischargeRadius / 100
+        minLeftEnd = -self.impRollerCenter[0] - 2 * self.radius
+        maxLeftEnd = -self.impRollerCenter[0] - 0.1 * self.radius
+        m = math.tan( math.asin( r / abs( minLeftEnd ) ) )
+        maxIY = min( m * ( i[0] - minLeftEnd ), self.dedendum)
+        if (i[1] > maxIY):
+            self.lockingPalletDepth = i[1] = maxIY
+        #self.report({'INFO'}, "{0}".format(i[1]))
 
         if ( (self.impRollerCenter[0] - i[0]) ** 2 + (self.impRollerCenter[1] - i[1]) ** 2 >= (self.impRollerRadius * 1.2) ** 2 ):
-            minLeftEnd = -self.impRollerCenter[0] - 2 * self.radius
-            maxLeftEnd = -self.impRollerCenter[0] - 0.1 * self.radius
-            # minM = i[1] / (i[0] - minLeftEnd)
-            # maxM = i[1] / (i[0] - maxLeftEnd)
-
             r = self.impRollerRadius * self.dischargeRadius / 100
             self.dischargePalletTip = [
                 r * math.cos( math.pi - self.dischargeAngle ),
