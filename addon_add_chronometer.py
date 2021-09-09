@@ -242,46 +242,24 @@ def add_impulse_roller(self, context):
 def add_detent(self, context):
     verts = []
 
-    # left end
-    verts.append( (self.detentLeftEnd, 1, 0) )
-    verts.append( (self.detentLeftEnd, 0, 0) )
-    verts.append( (self.detentLeftEnd, 0, self.detentWidth) )
-    verts.append( (self.detentLeftEnd, 1, self.detentWidth) )
+    verts.append( (0, 1, 0) )
+    verts.append( (0, 0, 0) )
+    verts.append( (0, 0, self.detentWidth) )
+    verts.append( (0, 1, self.detentWidth) )
 
-    # locking pallet
-    verts.append( (-self.impRollerCenter[0], 1, -self.width) )
-    verts.append( (-self.impRollerCenter[0], -self.lockingPalletDepth, -self.width) )
-    verts.append( (-self.impRollerCenter[0], -self.lockingPalletDepth, 0) )
-    verts.append( (-self.impRollerCenter[0], 1, 0) )
-    
-    verts.append( (-self.impRollerCenter[0] + 1, 1, -self.width) )
-    verts.append( (-self.impRollerCenter[0] + 1, -self.lockingPalletDepth + 1, -self.width) )
-    verts.append( (-self.impRollerCenter[0] + 1, -self.lockingPalletDepth + 1, 0) )
-    verts.append( (-self.impRollerCenter[0] + 1, 1, 0) )
-
-    # right end
-    verts.append( (self.detentLeftEnd + self.detentLength, 1, 0) )
-    verts.append( (self.detentLeftEnd + self.detentLength, 0, 0) )
-    verts.append( (self.detentLeftEnd + self.detentLength, 0, self.detentWidth) )
-    verts.append( (self.detentLeftEnd + self.detentLength, 1, self.detentWidth) )
-
-    move_verts(verts, [-self.detentLeftEnd, 0, 0])
+    verts.append( (self.detentLength, 1, 0) )
+    verts.append( (self.detentLength, 0, 0) )
+    verts.append( (self.detentLength, 0, self.detentWidth) )
+    verts.append( (self.detentLength, 1, self.detentWidth) )
 
     faces = []
 
     faces.append( (0, 1, 2, 3) )
-    faces.append( (0, 3, 15, 12) )
-    faces.append( (3, 2, 14, 15) )
-    faces.append( (2, 1, 13, 14) )
-    faces.append( (1, 0, 12, 13) )
-    faces.append( (12, 15, 14, 13) )
-
-    faces.append( (4, 5, 6, 7) )
-    faces.append( (4, 7, 11, 8) )
-    faces.append( (7, 6, 10, 11) )
-    faces.append( (6, 5, 9, 10) )
-    faces.append( (5, 4, 8, 9) )
-    faces.append( (8, 9, 10, 11) )
+    faces.append( (0, 3, 7, 4) )
+    faces.append( (3, 2, 6, 7) )
+    faces.append( (2, 1, 5, 6) )
+    faces.append( (1, 0, 4, 5) )
+    faces.append( (4, 7, 6, 5) )
 
     mesh = bpy.data.meshes.new(name="Detent")
     mesh.from_pydata(verts, [], faces)
@@ -290,6 +268,55 @@ def add_detent(self, context):
 
     obj = object_data_add(context, mesh, operator=self)
     obj.location = (self.detentLeftEnd + self.impRollerCenter[0], self.impRollerCenter[1], 0)
+
+def add_locking_pallet(self, context):
+    verts = []
+
+    verts.append( (0, 1, -self.width) )
+    verts.append( (0, -self.lockingPalletDepth, -self.width) )
+    verts.append( (0, -self.lockingPalletDepth, 0) )
+    verts.append( (0, 1, 0) )
+    
+    verts.append( (1, 1, -self.width) )
+    verts.append( (1, -self.lockingPalletDepth + 1, -self.width) )
+    verts.append( (1, -self.lockingPalletDepth + 1, 0) )
+    verts.append( (1, 1, 0) )
+
+    move_verts(verts, (-self.detentLeftEnd - self.impRollerCenter[0], 0, 0))
+
+    faces = []
+
+    faces.append( (0, 1, 2, 3) )
+    faces.append( (0, 3, 7, 4) )
+    faces.append( (3, 2, 6, 7) )
+    faces.append( (2, 1, 5, 6) )
+    faces.append( (1, 0, 4, 5) )
+    faces.append( (4, 5, 6, 7) )
+
+    mesh = bpy.data.meshes.new(name="Locking Pallet")
+    mesh.from_pydata(verts, [], faces)
+    # useful for development when the mesh may be invalid.
+    mesh.validate(verbose=True)
+
+    obj = object_data_add(context, mesh, operator=self)
+    obj.location = (self.detentLeftEnd + self.impRollerCenter[0], self.impRollerCenter[1], 0)
+
+
+def add_discharge_pallet(self, context):
+    verts = []
+
+    verts.append( (self.dischargePalletTip[0], self.dischargePalletTip[1], self.detentWidth) )
+
+    faces = []
+
+    mesh = bpy.data.meshes.new(name="Discharge Pallet")
+    mesh.from_pydata(verts, [], faces)
+    # useful for development when the mesh may be invalid.
+    mesh.validate(verbose=True)
+
+    obj = object_data_add(context, mesh, operator=self)
+    obj.location = self.impRollerCenter
+
 
 class AddChronometer(Operator, AddObjectHelper):
     """Create a new Chronometer Escapement"""
@@ -571,6 +598,8 @@ class AddChronometer(Operator, AddObjectHelper):
         add_impulse_roller(self, context)
         add_escape_wheel(self, context)
         add_detent(self, context)
+        add_locking_pallet(self, context)
+        add_discharge_pallet(self, context)
 
         return {'FINISHED'}
 
