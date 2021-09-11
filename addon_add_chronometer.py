@@ -267,7 +267,7 @@ def add_detent(self, context):
     mesh.validate(verbose=True)
 
     obj = object_data_add(context, mesh, operator=self)
-    obj.location = (self.detentLeftEnd + self.impRollerCenter[0], self.impRollerCenter[1], 0)
+    obj.location = (-self.detentBladeLength, self.impRollerCenter[1], 0)
 
 def add_locking_pallet(self, context):
     verts = []
@@ -282,7 +282,7 @@ def add_locking_pallet(self, context):
     verts.append( (1, -self.lockingPalletDepth + 1, 0) )
     verts.append( (1, 1, 0) )
 
-    move_verts(verts, (-self.detentLeftEnd - self.impRollerCenter[0], 0, 0))
+    move_verts(verts, (-self.detentBladeLength - self.impRollerCenter[0], 0, 0))
 
     faces = []
 
@@ -299,8 +299,7 @@ def add_locking_pallet(self, context):
     mesh.validate(verbose=True)
 
     obj = object_data_add(context, mesh, operator=self)
-    obj.location = (self.detentLeftEnd + self.impRollerCenter[0], self.impRollerCenter[1], 0)
-
+    obj.location = (self.detentBladeLength + self.impRollerCenter[0], self.impRollerCenter[1], 0)
 
 def add_discharge_pallet(self, context):
     verts = []
@@ -429,15 +428,13 @@ class AddChronometer(Operator, AddObjectHelper):
         subtype='ANGLE',
     )
 
-    dischargeRadius: FloatProperty(
-        name="Discharge Pallet Radius Factor",
-        description="Radius of Discharge Pallet relative to Radius of Impulse Roller",
+    detentBladeLength: FloatProperty(
+        name="Blade of Detent Length",
+        description="Length of the Detent, to the left of the Locking Pallet",
         min=1.0,
-        max=100.0,
-        default=100.0,
-        step=10,
-        precision=1,
-        subtype='PERCENTAGE',
+        max=1000.0,
+        default=10.0,
+        unit='LENGTH',
     )
 
     detentWidth: FloatProperty(
@@ -449,8 +446,8 @@ class AddChronometer(Operator, AddObjectHelper):
         default=5.0
     )
 
-    dischargePalletTip = [0.0, 0.0]
-    detentLeftEnd = 0.0
+    dischargePalletTip = [0.0, 0.0] # relative to Impulse Roller Center
+    dischargeRadiusFactor = 1.0     # relative to Impulse Roller Radius
     detentLength = 0.0
 
     # Common Properties
@@ -487,7 +484,7 @@ class AddChronometer(Operator, AddObjectHelper):
         box = layout.box()
         box.prop(self, 'lockingPalletDepth')
         box.prop(self, 'dischargeAngle')
-        box.prop(self, 'dischargeRadius')
+        box.prop(self, 'detentBladeLength')
         box.prop(self, 'detentWidth')
 
         box = layout.box()
@@ -542,61 +539,26 @@ class AddChronometer(Operator, AddObjectHelper):
 
 
     def validate_detent(self):
-        i = [ -self.impRollerCenter[0], self.lockingPalletDepth ]
-        r = self.impRollerRadius * self.dischargeRadius / 100
-        minLeftEnd = -self.impRollerCenter[0] - 2 * self.radius
-        maxLeftEnd = -self.impRollerCenter[0] - 0.1 * self.radius
-        m = math.tan( math.asin( r / abs( minLeftEnd ) ) )
-        maxIY = min( m * ( i[0] - minLeftEnd ), self.dedendum)
-        if (i[1] > maxIY):
-            self.lockingPalletDepth = i[1] = maxIY
-        #self.report({'INFO'}, "{0}".format(i[1]))
+        # relative to self.impRollerCenter
+        self.lockingPalletDepth = min( self.dedendum, self.lockingPalletDepth )
 
-        if ( (self.impRollerCenter[0] - i[0]) ** 2 + (self.impRollerCenter[1] - i[1]) ** 2 >= (self.impRollerRadius * 1.2) ** 2 ):
-            r = self.impRollerRadius * self.dischargeRadius / 100
-            self.dischargePalletTip = [
-                r * math.cos( math.pi - self.dischargeAngle ),
-                r * math.sin( self.dischargeAngle )
-            ]
+        releaseAngleMin = math.radians(1.0)
+        #releaseAngleMax = math.radians(45.0)
+        self.detentBladeLength = min( max( self.lockingPalletDepth, self.detentBladeLength ), self.lockingPalletDepth / math.tan( releaseAngleMin ) )
 
-            minDetentAngle = math.atan2( i[1], (i[0] - minLeftEnd) )
-            maxDetentAngle = math.atan2( i[1], (i[0] - maxLeftEnd) )
-            #self.report({'INFO'}, '{0} - {1}'.format( math.degrees(minDetentAngle), math.degrees(maxDetentAngle)))
-            detentAngle = math.atan2( self.dischargePalletTip[1] - i[1], self.dischargePalletTip[0] - i[0] )
-            #self.report({'INFO'}, "{0}".format(math.degrees(detentAngle)))
+        self.detentLength = self.impRollerCenter[0] + self.detentBladeLength
+        detentReleaseAngle = math.atan( self.lockingPalletDepth / self.detentBladeLength )
 
-            if (detentAngle > maxDetentAngle):
-                detentAngle = maxDetentAngle
-            elif (detentAngle < minDetentAngle):
-                detentAngle = minDetentAngle
-            m = math.tan( detentAngle )
-            #self.report({'INFO'}, "{0}".format(math.degrees(detentAngle)))
-            self.detentLeftEnd = i[0] - i[1] / m
+        dischargeAngleMin = math.pi - math.atan2( self.lockingPalletDepth, -self.impRollerCenter[0] )
+        dischargeAngleMax = math.pi / 2 - detentReleaseAngle
+        self.dischargeAngle = min( dischargeAngleMax, max(dischargeAngleMin, self.dischargeAngle) )
 
-            minDetentLength = abs( self.detentLeftEnd ) * math.cos( detentAngle ) - math.sqrt( self.impRollerRadius ** 2 - ( self.detentLeftEnd * math.sin( detentAngle ) ) ** 2 )
-            minDischargeAngle = math.asin( minDetentLength * math.sin( detentAngle ) / self.impRollerRadius )
-            maxDischargeAngle = ( math.pi * 0.5 ) - detentAngle
-            #self.report({'INFO'}, '{0} - {1}'.format( math.degrees(minDischargeAngle), math.degrees(maxDischargeAngle)))
+        dischargePalletAngle = math.pi - detentReleaseAngle - self.dischargeAngle
+        dischargeRadius = self.detentLength * math.sin(detentReleaseAngle) / math.sin(dischargePalletAngle)
+        self.dischargeRadiusFactor = dischargeRadius / self.impRollerRadius
+        self.dischargePalletTip = [ dischargeRadius * math.cos( math.pi - self.dischargeAngle ), dischargeRadius * math.sin( self.dischargeAngle ) ]
 
-            if (self.dischargeAngle > maxDischargeAngle):
-                self.dischargeAngle = maxDischargeAngle
-            elif ( self.dischargeAngle < minDischargeAngle ):
-                self.dischargeAngle = minDischargeAngle
-
-            r = math.sin( detentAngle ) * abs( self.detentLeftEnd ) / math.sin( math.pi - detentAngle - self.dischargeAngle )
-            self.dischargeRadius = max( 1, min( 100 * r / self.impRollerRadius, 100 ) )
-
-            r = self.impRollerRadius * self.dischargeRadius / 100
-            self.dischargePalletTip = [
-                r * math.cos( math.pi - self.dischargeAngle ),
-                r * math.sin( self.dischargeAngle )
-            ]
-
-            self.detentLength = math.sqrt( ( self.detentLeftEnd - self.dischargePalletTip[0] ) ** 2 + ( self.dischargePalletTip[1] ) ** 2 )
-            return True
-        else:
-            self.report({'ERROR'}, 'Not enough space between Impulse Roller and Locking Pallet') # untested
-            return False
+        return True
 
 
     def execute(self, context):
