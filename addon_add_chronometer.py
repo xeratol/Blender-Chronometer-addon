@@ -496,10 +496,9 @@ class AddChronometer(Operator, AddObjectHelper):
         box.prop(self, 'rotation', expand=True)
 
 
-    def validate(self):
+    def validate_escape_wheel(self):
         self.escWheelTheta = 2 * math.pi / self.numTeeth
 
-        # Escape Wheel Computations
         maxRestTooth = self.numTeeth // 4 - 1
         self.restTooth = min(maxRestTooth, self.restTooth)
 
@@ -524,14 +523,25 @@ class AddChronometer(Operator, AddObjectHelper):
             self.report({'WARNING'}, 'Invalid Escape Wheel Dimensions. Base automatically adjusted.')
             self.escWheelBase = self.radius - self.dedendum # maximum escape wheel base
 
-        # Impulse Roller Computations
+        return True
+
+
+    def validate_impulse_roller(self):
         tanDist = self.radius / math.tan( ( math.pi - self.escWheelTheta * (2 * self.restTooth + 1) ) / 2 )
         self.impRollerCenter = [tanDist, self.radius, 0]
         distBetween = math.sqrt( self.impRollerCenter[0] ** 2 + self.impRollerCenter[1] ** 2 )
         self.impRollerTheta = 2 * math.atan( ( self.impRollerCenter[1] * math.sin( self.escWheelTheta / 2 ) ) / ( distBetween - self.impRollerCenter[1] * math.cos( self.escWheelTheta / 2 )) )
         self.impRollerRadius = ( self.impRollerCenter[1] * math.sin( self.escWheelTheta / 2 ) ) / math.sin( self.impRollerTheta / 2 )
 
-        # Detent Computations
+        chordLength = 2 * self.radius * math.sin( self.escWheelTheta / 2 )
+        if (self.impRollerRadius * 2 < chordLength):
+            self.report({'ERROR'}, 'Not enough space between Impulse Roller and Locking Pallet') # untested
+            return False
+
+        return True
+
+
+    def validate_detent(self):
         i = [ -self.impRollerCenter[0], self.lockingPalletDepth ]
         r = self.impRollerRadius * self.dischargeRadius / 100
         minLeftEnd = -self.impRollerCenter[0] - 2 * self.radius
@@ -583,17 +593,16 @@ class AddChronometer(Operator, AddObjectHelper):
             ]
 
             self.detentLength = math.sqrt( ( self.detentLeftEnd - self.dischargePalletTip[0] ) ** 2 + ( self.dischargePalletTip[1] ) ** 2 )
-
+            return True
         else:
-            self.report({'ERROR'}, 'Not enough space between Impulse Roller and Locking Pallet')
+            self.report({'ERROR'}, 'Not enough space between Impulse Roller and Locking Pallet') # untested
+            return False
 
-        return True
 
-            
     def execute(self, context):
 
-        if (not self.validate()):
-            return
+        if (not self.validate_escape_wheel() or not self.validate_impulse_roller() or not self.validate_detent()):
+            return {'FINISHED'}
             
         add_impulse_roller(self, context)
         add_escape_wheel(self, context)
