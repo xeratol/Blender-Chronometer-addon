@@ -19,7 +19,7 @@
 bl_info = {
     "name": "Chronometer Escapement",
     "author": "Francis Joseph Serina",
-    "version": (0, 0, 1),
+    "version": (0, 0, 2),
     "blender": (2, 80, 0),
     "location": "View3D > Add > Mesh",
     "description": "Adds 5 pieces of the Chronometer Escapement - Recoil Type. The pieces are Escape Wheel, Impulse Roller, Spring of Detent, Discharge Pallet, and Locking Pallet.",
@@ -240,26 +240,25 @@ def add_impulse_roller(self, context):
     vertGrp.add(list(range(startIdxLowerInner, len(verts))), 1.0, 'ADD')
 
 def add_detent(self, context):
-    verts = []
+    verts = [
+        (0, 1, 0),
+        (0, 0, 0),
+        (0, 0, self.detentWidth),
+        (0, 1, self.detentWidth),
+        (self.detentLength, 1, 0),
+        (self.detentLength, 0, 0),
+        (self.detentLength, 0, self.detentWidth),
+        (self.detentLength, 1, self.detentWidth),
+    ]
 
-    verts.append( (0, 1, 0) )
-    verts.append( (0, 0, 0) )
-    verts.append( (0, 0, self.detentWidth) )
-    verts.append( (0, 1, self.detentWidth) )
-
-    verts.append( (self.detentLength, 1, 0) )
-    verts.append( (self.detentLength, 0, 0) )
-    verts.append( (self.detentLength, 0, self.detentWidth) )
-    verts.append( (self.detentLength, 1, self.detentWidth) )
-
-    faces = []
-
-    faces.append( (0, 1, 2, 3) )
-    faces.append( (0, 3, 7, 4) )
-    faces.append( (3, 2, 6, 7) )
-    faces.append( (2, 1, 5, 6) )
-    faces.append( (1, 0, 4, 5) )
-    faces.append( (4, 7, 6, 5) )
+    faces = [
+        (0, 1, 2, 3),
+        (0, 3, 7, 4),
+        (3, 2, 6, 7),
+        (2, 1, 5, 6),
+        (1, 0, 4, 5),
+        (4, 7, 6, 5),
+    ]
 
     mesh = bpy.data.meshes.new(name="Detent")
     mesh.from_pydata(verts, [], faces)
@@ -270,28 +269,26 @@ def add_detent(self, context):
     obj.location = (-self.detentBladeLength, self.impRollerCenter[1], 0)
 
 def add_locking_pallet(self, context):
-    verts = []
+    verts = [
+        (0, 1, -self.width),
+        (0, -self.lockingPalletDepth, -self.width),
+        (0, -self.lockingPalletDepth, 0),
+        (0, 1, 0),
+        (1, 1, -self.width),
+        (1, -self.lockingPalletDepth + 1, -self.width),
+        (1, -self.lockingPalletDepth + 1, 0),
+        (1, 1, 0),
+    ]
+    move_verts(verts, (self.detentBladeLength, 0, 0))
 
-    verts.append( (0, 1, -self.width) )
-    verts.append( (0, -self.lockingPalletDepth, -self.width) )
-    verts.append( (0, -self.lockingPalletDepth, 0) )
-    verts.append( (0, 1, 0) )
-    
-    verts.append( (1, 1, -self.width) )
-    verts.append( (1, -self.lockingPalletDepth + 1, -self.width) )
-    verts.append( (1, -self.lockingPalletDepth + 1, 0) )
-    verts.append( (1, 1, 0) )
-
-    move_verts(verts, (-self.detentBladeLength - self.impRollerCenter[0], 0, 0))
-
-    faces = []
-
-    faces.append( (0, 1, 2, 3) )
-    faces.append( (0, 3, 7, 4) )
-    faces.append( (3, 2, 6, 7) )
-    faces.append( (2, 1, 5, 6) )
-    faces.append( (1, 0, 4, 5) )
-    faces.append( (4, 5, 6, 7) )
+    faces = [
+        (0, 1, 2, 3),
+        (0, 3, 7, 4),
+        (3, 2, 6, 7),
+        (2, 1, 5, 6),
+        (1, 0, 4, 5),
+        (4, 5, 6, 7),
+    ]
 
     mesh = bpy.data.meshes.new(name="Locking Pallet")
     mesh.from_pydata(verts, [], faces)
@@ -299,11 +296,9 @@ def add_locking_pallet(self, context):
     mesh.validate(verbose=True)
 
     obj = object_data_add(context, mesh, operator=self)
-    obj.location = (self.detentBladeLength + self.impRollerCenter[0], self.impRollerCenter[1], 0)
+    obj.location = (-self.detentBladeLength, self.impRollerCenter[1], 0)
 
 def add_discharge_pallet(self, context):
-    verts = []
-
     adds = [[0,0]]
     theta = math.pi / 2 - self.detentReleaseAngle
     adds.append( [math.cos(theta), math.sin(-theta)] )
@@ -311,12 +306,14 @@ def add_discharge_pallet(self, context):
     length = math.cos(theta)
     adds.append( [length * math.cos(-self.dischargeAngle), length * math.sin(-self.dischargeAngle)] )
 
-    verts.append( (self.dischargePalletTip[0] + adds[0][0], self.dischargePalletTip[1] + adds[0][1], 0) )
-    verts.append( (self.dischargePalletTip[0] + adds[1][0], self.dischargePalletTip[1] + adds[1][1], 0) )
-    verts.append( (self.dischargePalletTip[0] + adds[2][0], self.dischargePalletTip[1] + adds[2][1], 0) )
-    verts.append( (self.dischargePalletTip[0] + adds[0][0], self.dischargePalletTip[1] + adds[0][1], self.detentWidth) )
-    verts.append( (self.dischargePalletTip[0] + adds[1][0], self.dischargePalletTip[1] + adds[1][1], self.detentWidth) )
-    verts.append( (self.dischargePalletTip[0] + adds[2][0], self.dischargePalletTip[1] + adds[2][1], self.detentWidth) )
+    verts = [
+        (self.dischargePalletTip[0] + adds[0][0], self.dischargePalletTip[1] + adds[0][1], 0),
+        (self.dischargePalletTip[0] + adds[1][0], self.dischargePalletTip[1] + adds[1][1], 0),
+        (self.dischargePalletTip[0] + adds[2][0], self.dischargePalletTip[1] + adds[2][1], 0),
+        (self.dischargePalletTip[0] + adds[0][0], self.dischargePalletTip[1] + adds[0][1], self.detentWidth),
+        (self.dischargePalletTip[0] + adds[1][0], self.dischargePalletTip[1] + adds[1][1], self.detentWidth),
+        (self.dischargePalletTip[0] + adds[2][0], self.dischargePalletTip[1] + adds[2][1], self.detentWidth),
+    ]
 
     faces = [
         (0, 2, 1),
@@ -420,9 +417,22 @@ class AddChronometer(Operator, AddObjectHelper):
         default=2.0
     )
 
+    dischargeAngle: FloatProperty(
+        name="Angle of Discharge Pallet",
+        description="Angle of Discharge Pallet for Escape Wheel to release energy",
+        min=0.0,
+        max=math.pi / 2,
+        default=math.pi / 4,
+        step=1,
+        precision=2,
+        subtype='ANGLE',
+    )
+
     impRollerCenter = [0.0, 0.0]
     impRollerRadius = 0.0
     impRollerTheta = 0.0
+    dischargePalletTip = [0.0, 0.0] # relative to Impulse Roller Center
+    dischargeRadiusFactor = 1.0     # relative to Impulse Roller Radius
 
     # Detent Properties
 
@@ -433,17 +443,6 @@ class AddChronometer(Operator, AddObjectHelper):
         max=100.0,
         default=1.0,
         unit='LENGTH',
-    )
-
-    dischargeAngle: FloatProperty(
-        name="Angle of Discharge Pallet",
-        description="Angle of Discharge Pallet for Escape Wheel to release energy",
-        min=0.0,
-        max=math.pi / 2,
-        default=math.pi / 4,
-        step=1,
-        precision=2,
-        subtype='ANGLE',
     )
 
     detentBladeLength: FloatProperty(
@@ -464,8 +463,6 @@ class AddChronometer(Operator, AddObjectHelper):
         default=5.0
     )
 
-    dischargePalletTip = [0.0, 0.0] # relative to Impulse Roller Center
-    dischargeRadiusFactor = 1.0     # relative to Impulse Roller Radius
     detentLength = 0.0
     detentReleaseAngle = 0.0
 
@@ -497,12 +494,12 @@ class AddChronometer(Operator, AddObjectHelper):
         box.prop(self, 'restTooth')
         box.prop(self, 'impRollerVert')
         box.prop(self, 'impRollerBase')
+        box.prop(self, 'dischargeAngle')
         box.prop(self, 'width') # shared with Escape Wheel
 
         layout.label(text="Detent")
         box = layout.box()
         box.prop(self, 'lockingPalletDepth')
-        box.prop(self, 'dischargeAngle')
         box.prop(self, 'detentBladeLength')
         box.prop(self, 'detentWidth')
 
