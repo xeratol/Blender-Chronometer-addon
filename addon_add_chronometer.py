@@ -304,9 +304,27 @@ def add_locking_pallet(self, context):
 def add_discharge_pallet(self, context):
     verts = []
 
-    verts.append( (self.dischargePalletTip[0], self.dischargePalletTip[1], self.detentWidth) )
+    adds = [[0,0]]
+    theta = math.pi / 2 - self.detentReleaseAngle
+    adds.append( [math.cos(theta), math.sin(-theta)] )
+    theta = math.pi / 2 - self.dischargeAngle - self.detentReleaseAngle
+    length = math.cos(theta)
+    adds.append( [length * math.cos(-self.dischargeAngle), length * math.sin(-self.dischargeAngle)] )
 
-    faces = []
+    verts.append( (self.dischargePalletTip[0] + adds[0][0], self.dischargePalletTip[1] + adds[0][1], 0) )
+    verts.append( (self.dischargePalletTip[0] + adds[1][0], self.dischargePalletTip[1] + adds[1][1], 0) )
+    verts.append( (self.dischargePalletTip[0] + adds[2][0], self.dischargePalletTip[1] + adds[2][1], 0) )
+    verts.append( (self.dischargePalletTip[0] + adds[0][0], self.dischargePalletTip[1] + adds[0][1], self.detentWidth) )
+    verts.append( (self.dischargePalletTip[0] + adds[1][0], self.dischargePalletTip[1] + adds[1][1], self.detentWidth) )
+    verts.append( (self.dischargePalletTip[0] + adds[2][0], self.dischargePalletTip[1] + adds[2][1], self.detentWidth) )
+
+    faces = [
+        (0, 2, 1),
+        (0, 3, 5, 2),
+        (1, 2, 5, 4),
+        (0, 1, 4, 3),
+        (3, 4, 5),
+    ]
 
     mesh = bpy.data.meshes.new(name="Discharge Pallet")
     mesh.from_pydata(verts, [], faces)
@@ -449,6 +467,7 @@ class AddChronometer(Operator, AddObjectHelper):
     dischargePalletTip = [0.0, 0.0] # relative to Impulse Roller Center
     dischargeRadiusFactor = 1.0     # relative to Impulse Roller Radius
     detentLength = 0.0
+    detentReleaseAngle = 0.0
 
     # Common Properties
 
@@ -547,16 +566,18 @@ class AddChronometer(Operator, AddObjectHelper):
         self.detentBladeLength = min( max( self.lockingPalletDepth, self.detentBladeLength ), self.lockingPalletDepth / math.tan( releaseAngleMin ) )
 
         self.detentLength = self.impRollerCenter[0] + self.detentBladeLength
-        detentReleaseAngle = math.atan( self.lockingPalletDepth / self.detentBladeLength )
+        self.detentReleaseAngle = math.atan( self.lockingPalletDepth / self.detentBladeLength )
 
         dischargeAngleMin = math.pi - math.atan2( self.lockingPalletDepth, -self.impRollerCenter[0] )
-        dischargeAngleMax = math.pi / 2 - detentReleaseAngle
+        dischargeAngleMax = math.pi / 2 - self.detentReleaseAngle
         self.dischargeAngle = min( dischargeAngleMax, max(dischargeAngleMin, self.dischargeAngle) )
 
-        dischargePalletAngle = math.pi - detentReleaseAngle - self.dischargeAngle
-        dischargeRadius = self.detentLength * math.sin(detentReleaseAngle) / math.sin(dischargePalletAngle)
+        dischargePalletAngle = math.pi - self.detentReleaseAngle - self.dischargeAngle
+        dischargeRadius = self.detentLength * math.sin(self.detentReleaseAngle) / math.sin(dischargePalletAngle)
         self.dischargeRadiusFactor = dischargeRadius / self.impRollerRadius
         self.dischargePalletTip = [ dischargeRadius * math.cos( math.pi - self.dischargeAngle ), dischargeRadius * math.sin( self.dischargeAngle ) ]
+
+        self.detentLength = math.sqrt( (self.dischargePalletTip[1]) ** 2 + (self.detentLength - abs(self.dischargePalletTip[0])) ** 2)
 
         return True
 
