@@ -22,7 +22,7 @@ bl_info = {
     "version": (0, 0, 1),
     "blender": (2, 80, 0),
     "location": "View3D > Add > Mesh",
-    "description": "Adds a new Chronometer Escapement",
+    "description": "Adds 5 pieces of the Chronometer Escapement - Recoil Type. The pieces are Escape Wheel, Impulse Roller, Spring of Detent, Discharge Pallet, and Locking Pallet.",
     "warning": "",
     "doc_url": "",
     "category": "Add Mesh",
